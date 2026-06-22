@@ -19,14 +19,14 @@ async function notifyOnce(
   body: string,
   url?: string,
 ): Promise<boolean> {
-  try {
-    await prisma.notificationLog.create({
-      data: { userId, kind, dedupeKey, title, body, url },
-    });
-  } catch {
-    // Unique-constraint violation → already sent for this event. Skip.
-    return false;
-  }
+  // Idempotent insert: skipDuplicates relies on the @@unique(userId, dedupeKey)
+  // index. count === 0 means we already logged (and sent) this event, so skip —
+  // without provoking a Prisma error on every scheduler tick.
+  const { count } = await prisma.notificationLog.createMany({
+    data: [{ userId, kind, dedupeKey, title, body, url }],
+    skipDuplicates: true,
+  });
+  if (count === 0) return false;
   await sendToUser(userId, { title, body, url, tag: kind });
   return true;
 }

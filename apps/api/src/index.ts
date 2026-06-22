@@ -29,21 +29,15 @@ async function main(): Promise<void> {
   }
 
   // Boot diagnostics (no secrets): the CORS origin the browser MUST match, and
-  // which integrations this process can actually see. A wrong APP_ORIGIN here is
-  // the usual cause of "Couldn't reach the server" in the web app.
+  // which integrations this process can see. Inlined into the message string so
+  // it's visible even in log viewers that only render `msg`. A wrong APP_ORIGIN
+  // here is the usual cause of "Couldn't reach the server" in the web app.
+  const on = (v: unknown) => (v ? "on" : "off");
   app.log.info(
-    {
-      appOrigin: env.APP_ORIGIN,
-      integrations: {
-        ai: aiConfigured(),
-        notion: Boolean(env.NOTION_TOKEN),
-        hevy: Boolean(env.HEVY_API_KEY),
-        healthIngest: Boolean(env.HEALTH_INGEST_TOKEN),
-        encryption: encryptionConfigured(),
-        push: pushConfigured(),
-      },
-    },
-    "Apex API ready — CORS locked to APP_ORIGIN above",
+    `Apex API ready — CORS origin: ${env.APP_ORIGIN} | integrations: ` +
+      `ai=${on(aiConfigured())} notion=${on(env.NOTION_TOKEN)} ` +
+      `hevy=${on(env.HEVY_API_KEY)} healthIngest=${on(env.HEALTH_INGEST_TOKEN)} ` +
+      `encryption=${on(encryptionConfigured())} push=${on(pushConfigured())}`,
   );
 
   // Phase 5: in-process reminder scheduler. Each rule is time-gated and deduped,

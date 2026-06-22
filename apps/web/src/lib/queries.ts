@@ -544,3 +544,149 @@ export const useSyncHevy = () => {
     },
   });
 };
+
+/* ===================== Phase 4: AI coach ===================== */
+import type {
+  AiChatMessage,
+  AiText,
+  CreateTwinlySaleInput,
+  ImportStatementInput,
+  MealEstimate,
+  ReviewType,
+  StatementDetail,
+  StatementListItem,
+  TwinlySale,
+  TwinlySalesSummary,
+} from "@apex/shared";
+
+/* ----- Chat ----- */
+export function useAiChat() {
+  return useQuery({
+    queryKey: ["ai-chat"],
+    queryFn: () =>
+      api.get<{ configured: boolean; messages: AiChatMessage[] }>("/api/ai/chat"),
+  });
+}
+export function useSendChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (message: string) =>
+      api.post<AiChatMessage>("/api/ai/chat", { message }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-chat"] }),
+  });
+}
+
+/* ----- Briefing + day plan ----- */
+export function useBriefing() {
+  return useQuery({
+    queryKey: ["ai-briefing"],
+    queryFn: () => api.get<AiText>("/api/ai/briefing"),
+  });
+}
+export function useGenerateBriefing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<AiText>("/api/ai/briefing"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-briefing"] });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+export function usePlan() {
+  return useQuery({
+    queryKey: ["ai-plan"],
+    queryFn: () => api.get<AiText>("/api/ai/plan"),
+  });
+}
+export function useGeneratePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (commitments?: string) =>
+      api.post<AiText>("/api/ai/plan", { commitments }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-plan"] }),
+  });
+}
+
+/* ----- Weekly reviews ----- */
+export function useReview(type: ReviewType) {
+  return useQuery({
+    queryKey: ["ai-review", type],
+    queryFn: () => api.get<AiText>(`/api/ai/review?type=${type}`),
+  });
+}
+export function useGenerateReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (type: ReviewType) =>
+      api.post<AiText>(`/api/ai/review?type=${type}`),
+    onSuccess: (_data, type) =>
+      qc.invalidateQueries({ queryKey: ["ai-review", type] }),
+  });
+}
+
+/* ----- AI macro tracker ----- */
+export const useAnalyzeText = () =>
+  useMutation({
+    mutationFn: (text: string) =>
+      api.post<MealEstimate>("/api/meals/analyze/text", { text }),
+  });
+export const useAnalyzePhoto = () =>
+  useMutation({
+    mutationFn: (input: { imageBase64: string; mediaType: string; hint?: string }) =>
+      api.post<MealEstimate>("/api/meals/analyze/photo", input),
+  });
+export const useBarcodeLookup = () =>
+  useMutation({
+    mutationFn: (code: string) =>
+      api.get<MealEstimate>(`/api/meals/barcode/${code}`),
+  });
+
+/* ----- Twinly sales ----- */
+export function useTwinlySales() {
+  return useQuery({
+    queryKey: ["twinly-sales"],
+    queryFn: () => api.get<TwinlySalesSummary>("/api/twinly/sales"),
+  });
+}
+export function useSaveTwinlySale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateTwinlySaleInput) =>
+      api.post<TwinlySale>("/api/twinly/sales", input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["twinly-sales"] });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+/* ----- Bank statements ----- */
+export function useStatements() {
+  return useQuery({
+    queryKey: ["statements"],
+    queryFn: () => api.get<StatementListItem[]>("/api/statements"),
+  });
+}
+export function useStatement(id: string | null) {
+  return useQuery({
+    queryKey: ["statement", id],
+    queryFn: () => api.get<StatementDetail>(`/api/statements/${id}`),
+    enabled: Boolean(id),
+  });
+}
+export function useImportStatement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ImportStatementInput) =>
+      api.post<StatementDetail>("/api/statements", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["statements"] }),
+  });
+}
+export function useDeleteStatement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<{ ok: true }>(`/api/statements/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["statements"] }),
+  });
+}

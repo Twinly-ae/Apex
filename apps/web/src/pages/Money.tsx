@@ -2,6 +2,9 @@ import { useState } from "react";
 import { NetWorthChart } from "../components/Charts";
 import { AccountCard } from "../components/money/AccountCard";
 import { AccountSheet, BillSheet } from "../components/money/MoneySheets";
+import { Statements } from "../components/money/Statements";
+import { TwinlySales } from "../components/money/TwinlySales";
+import { WeeklyReview } from "../components/money/WeeklyReview";
 import {
   useBills,
   useDeleteBill,
@@ -105,6 +108,9 @@ export function Money() {
         )}
       </section>
 
+      {/* Twinly sales (manual daily entry) */}
+      <TwinlySales />
+
       {/* Twinly expenses (Notion) */}
       <section className="rounded-2xl border border-line bg-surface p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -167,6 +173,12 @@ export function Money() {
           </p>
         )}
       </section>
+
+      {/* Bank statements (Claude-parsed, encrypted at rest) */}
+      <Statements />
+
+      {/* AI weekly reviews */}
+      <WeeklyReview />
 
       <AccountSheet open={acctOpen} onClose={() => setAcctOpen(false)} />
       <BillSheet open={billOpen} onClose={() => setBillOpen(false)} />

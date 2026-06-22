@@ -27,6 +27,13 @@ const schema = z.object({
     .optional()
     .default("5de30779-8408-455c-8c4d-525ed00bc4a1"),
   HEALTH_INGEST_TOKEN: z.string().optional(),
+
+  // Phase 4 — AI coach + encryption for sensitive data at rest.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().optional().default("claude-opus-4-8"),
+  // 32-byte key (hex or base64) for AES-256-GCM. Required only for bank
+  // statements; generate: openssl rand -hex 32
+  ENCRYPTION_KEY: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

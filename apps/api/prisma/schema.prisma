@@ -33,6 +33,11 @@ model User {
   bills             Bill[]
   healthMetrics     HealthMetric[]
   twinlyExpenses    TwinlyExpense[]
+  aiMessages        AiMessage[]
+  aiArtifacts       AiArtifact[]
+  twinlySales       TwinlySale[]
+  bankStatements    BankStatement[]
+  transactions      Transaction[]
 }
 
 /// Editable recomp targets and preferences. One row per user.
@@ -295,4 +300,78 @@ model TwinlyExpense {
   updatedAt DateTime  @updatedAt
 
   @@index([userId, date])
+}
+
+// ---- Phase 4: AI coach ------------------------------------------------------
+
+model AiMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String // user | assistant
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// Cache for generated briefings / day plans / weekly reviews.
+model AiArtifact {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // briefing | plan | review:twinly | review:fitness | review:money
+  key       String // e.g. day (YYYY-MM-DD) or week start
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, kind, key])
+}
+
+model TwinlySale {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day        String // local YYYY-MM-DD
+  revenueAed Float    @default(0)
+  orders     Int      @default(0)
+  costAed    Float    @default(0)
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, day])
+}
+
+// ---- Phase 4: bank statements (encrypted at rest) ---------------------------
+
+model BankStatement {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month        String // YYYY-MM
+  filename     String
+  encryptedRaw String? // AES-256-GCM of the original text/CSV (PDFs not stored)
+  summary      Json? // category totals, savings rate, tips (no raw descriptions)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+
+  @@index([userId, month])
+}
+
+model Transaction {
+  id             String        @id @default(cuid())
+  statementId    String
+  statement      BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day            String // YYYY-MM-DD
+  descriptionEnc String // AES-256-GCM of the merchant/description
+  amountAed      Float
+  category       String
+  kind           String        @default("debit") // debit | credit
+
+  @@index([statementId])
+  @@index([userId, day])
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
 import { HabitsRow } from "../components/HabitsRow";
 import { MacroBar } from "../components/MacroBar";
@@ -6,7 +7,14 @@ import { QuickLogRow } from "../components/QuickLogRow";
 import { StatCard } from "../components/StatCard";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { formatDate, kg, liters, round } from "../lib/format";
-import { useToday, useUpdateTask } from "../lib/queries";
+import {
+  useBriefing,
+  useGenerateBriefing,
+  useGeneratePlan,
+  usePlan,
+  useToday,
+  useUpdateTask,
+} from "../lib/queries";
 
 function PriorityItem({ task }: { task: Task }) {
   const update = useUpdateTask();
@@ -29,7 +37,12 @@ function PriorityItem({ task }: { task: Task }) {
 
 export function Today() {
   const { data, isLoading } = useToday();
+  const briefing = useBriefing();
+  const genBriefing = useGenerateBriefing();
+  const plan = usePlan();
+  const genPlan = useGeneratePlan();
   const [workoutOpen, setWorkoutOpen] = useState(false);
+  const aiOn = briefing.data?.configured ?? false;
 
   if (isLoading || !data) {
     return (
@@ -45,15 +58,82 @@ export function Today() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-text">{data.greeting}</h1>
-        <p className="text-sm text-muted">{formatDate(`${data.date}T00:00:00`)}</p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-text">{data.greeting}</h1>
+          <p className="text-sm text-muted">
+            {formatDate(`${data.date}T00:00:00`)}
+          </p>
+        </div>
+        <Link
+          to="/coach"
+          className="shrink-0 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent active:opacity-80"
+        >
+          ✦ Coach
+        </Link>
       </header>
 
-      {/* Morning briefing (rules-based now; Claude-written in Phase 4) */}
+      {/* Morning briefing — Claude-written when configured, else rules-based */}
       <div className="rounded-2xl border border-line bg-gradient-to-br from-surface to-surface-2 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted">
+              Briefing
+            </span>
+            {data.briefingByAI && (
+              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                ✦ Claude
+              </span>
+            )}
+          </div>
+          {aiOn && (
+            <button
+              onClick={() => genBriefing.mutate()}
+              disabled={genBriefing.isPending}
+              className="text-xs text-accent active:opacity-70 disabled:opacity-50"
+            >
+              {genBriefing.isPending
+                ? "Writing…"
+                : data.briefingByAI
+                  ? "Refresh"
+                  : "Ask Claude"}
+            </button>
+          )}
+        </div>
         <p className="text-sm leading-relaxed text-text">{data.briefing}</p>
       </div>
+
+      {/* Day plan — Claude time-blocks the day around tasks, training, goals */}
+      {aiOn && (
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
+              Day plan
+            </h2>
+            <button
+              onClick={() => genPlan.mutate(undefined)}
+              disabled={genPlan.isPending}
+              className="text-xs text-accent active:opacity-70 disabled:opacity-50"
+            >
+              {genPlan.isPending
+                ? "Planning…"
+                : plan.data?.text
+                  ? "Re-plan"
+                  : "Plan my day"}
+            </button>
+          </div>
+          {plan.data?.text ? (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-text">
+              {plan.data.text}
+            </p>
+          ) : (
+            <p className="text-sm text-muted">
+              Let Claude block out your day around your tasks, training, and
+              goals.
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Today's focus — next step from the most urgent goal */}
       {data.todaysFocus && (
@@ -195,7 +275,16 @@ export function Today() {
           sub="total"
           soon={data.netWorthAed == null}
         />
-        <StatCard label="Twinly today" value="—" sub="Phase 4" soon />
+        <StatCard
+          label="Twinly today"
+          value={
+            data.twinlyRevenueToday != null
+              ? `AED ${Math.round(data.twinlyRevenueToday).toLocaleString()}`
+              : "—"
+          }
+          sub="revenue"
+          soon={data.twinlyRevenueToday == null}
+        />
       </section>
 
       <WorkoutSheet

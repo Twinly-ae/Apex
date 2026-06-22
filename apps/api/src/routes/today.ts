@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { TodaySummary } from "@apex/shared";
 import type { Goal } from "@apex/shared";
 import { prisma } from "../db";
+import { getArtifact } from "../lib/coach";
 import { loadGoals } from "../lib/goals";
 import { loadHabits } from "../lib/habits";
 import { healthSummary } from "../lib/health";
@@ -88,6 +89,8 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       todayWorkoutCount,
       health,
       accounts,
+      cachedBriefing,
+      todaySale,
     ] = await Promise.all([
       ensureSettings(userId),
       prisma.meal.findMany({
@@ -118,6 +121,10 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       }),
       healthSummary(userId),
       loadAccounts(userId),
+      getArtifact(userId, "briefing", dayString()),
+      prisma.twinlySale.findUnique({
+        where: { userId_day: { userId, day: dayString() } },
+      }),
     ]);
 
     const totals = meals.reduce(
@@ -150,16 +157,22 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
     const plannedWorkout =
       plannedLabel.trim().toLowerCase() === "rest" ? null : plannedLabel;
 
-    return {
-      date: dayString(),
-      greeting: greetingFor(localHour()),
-      briefing: buildBriefing({
+    // Prefer the Claude-written briefing if it's been generated today.
+    const aiBriefing = cachedBriefing?.content?.trim();
+    const briefing =
+      aiBriefing ||
+      buildBriefing({
         proteinRemaining: protein.remaining,
         calorieRemaining: calories.remaining,
         waterRemainingMl: water.remaining,
         openTaskCount,
         topTaskTitle: topPriorities[0]?.title,
-      }),
+      });
+
+    return {
+      date: dayString(),
+      greeting: greetingFor(localHour()),
+      briefing,
       topPriorities,
       nutrition: {
         calories,
@@ -179,6 +192,8 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       caloriesOut: health.activeEnergyKcal,
       steps: health.steps,
       netWorthAed: accounts.length ? netWorthTotal(accounts) : null,
+      twinlyRevenueToday: todaySale ? todaySale.revenueAed : null,
+      briefingByAI: Boolean(aiBriefing),
     };
   });
 }

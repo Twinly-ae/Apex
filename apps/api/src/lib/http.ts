@@ -1,16 +1,17 @@
 import type { FastifyReply } from "fastify";
-import type { ZodSchema } from "zod";
+import type { ZodTypeAny, z } from "zod";
 
 /**
- * Validate `data` against `schema`. On success returns the typed value.
- * On failure it sends a 400 with details and returns `undefined`, so callers
- * do: `const body = parseOr400(...); if (!body) return;`
+ * Validate `data` against `schema`. On success returns the schema's *output*
+ * type (so `.default()`/transforms are reflected). On failure it sends a 400
+ * with details and returns `undefined`, so callers do:
+ *   `const body = parseOr400(...); if (!body) return;`
  */
-export function parseOr400<T>(
-  schema: ZodSchema<T>,
+export function parseOr400<S extends ZodTypeAny>(
+  schema: S,
   data: unknown,
   reply: FastifyReply,
-): T | undefined {
+): z.infer<S> | undefined {
   const result = schema.safeParse(data);
   if (!result.success) {
     reply

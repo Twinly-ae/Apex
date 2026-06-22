@@ -1,12 +1,83 @@
 import type { FastifyInstance } from "fastify";
-import { createMealSchema, dayStringSchema, idParamSchema } from "@apex/shared";
+import {
+  analyzePhotoSchema,
+  analyzeTextSchema,
+  createMealSchema,
+  dayStringSchema,
+  idParamSchema,
+} from "@apex/shared";
 import { prisma } from "../db";
+import { aiConfigured } from "../lib/ai";
+import {
+  estimateFromPhoto,
+  estimateFromText,
+  lookupBarcode,
+} from "../lib/food";
 import { parseOr400 } from "../lib/http";
 import { toMeal } from "../lib/serializers";
 import { rangeForDayString } from "../lib/time";
 
 export default async function mealRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
+
+  // ---- AI / barcode macro estimation (returns an estimate to confirm) -----
+  app.post("/analyze/text", async (request, reply) => {
+    if (!aiConfigured()) {
+      reply.code(503).send({ error: "AI is not configured" });
+      return;
+    }
+    const body = parseOr400(analyzeTextSchema, request.body, reply);
+    if (!body) return;
+    try {
+      return await estimateFromText(body.text);
+    } catch (err) {
+      reply.code(502).send({
+        error: err instanceof Error ? err.message : "AI request failed",
+      });
+    }
+  });
+
+  app.post(
+    "/analyze/photo",
+    { bodyLimit: 8 * 1024 * 1024 },
+    async (request, reply) => {
+      if (!aiConfigured()) {
+        reply.code(503).send({ error: "AI is not configured" });
+        return;
+      }
+      const body = parseOr400(analyzePhotoSchema, request.body, reply);
+      if (!body) return;
+      try {
+        return await estimateFromPhoto(
+          body.imageBase64,
+          body.mediaType,
+          body.hint,
+        );
+      } catch (err) {
+        reply.code(502).send({
+          error: err instanceof Error ? err.message : "AI request failed",
+        });
+      }
+    },
+  );
+
+  app.get("/barcode/:code", async (request, reply) => {
+    const code = (request.params as { code: string }).code;
+    if (!/^\d{6,14}$/.test(code)) {
+      reply.code(400).send({ error: "Invalid barcode" });
+      return;
+    }
+    try {
+      const est = await lookupBarcode(code);
+      if (!est) {
+        reply.code(404).send({ error: "Product not found" });
+        return;
+      }
+      return est;
+    } catch {
+      reply.code(502).send({ error: "Barcode lookup failed" });
+    }
+  });
 
   // GET /api/meals?date=YYYY-MM-DD  (defaults to today)
   app.get("/", async (request) => {

@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { useMe } from "./lib/queries";
+import { Coach } from "./pages/Coach";
 import { Goals } from "./pages/Goals";
 import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
@@ -35,6 +36,7 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<Today />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/coach" element={<Coach />} />
         <Route path="/goals" element={<Goals />} />
         <Route
           path="/money"

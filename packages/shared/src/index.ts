@@ -220,6 +220,10 @@ export interface TodaySummary {
   caloriesOut: number | null;
   steps: number | null;
   netWorthAed: number | null;
+  /** Twinly revenue logged today (Phase 4); null if none. */
+  twinlyRevenueToday: number | null;
+  /** True when the briefing above was written by Claude (Phase 4). */
+  briefingByAI: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -552,4 +556,122 @@ export interface SyncResult {
   imported: number;
   total: number;
   message?: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Phase 4 — AI coach                                                         */
+/* -------------------------------------------------------------------------- */
+
+export interface AiChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+export const chatInputSchema = z.object({ message: z.string().min(1).max(4000) });
+export type ChatInput = z.infer<typeof chatInputSchema>;
+
+/** A cached, AI-generated text artifact (briefing / day plan / weekly review). */
+export interface AiText {
+  configured: boolean;
+  text: string;
+  generatedAt: string | null;
+}
+
+export const reviewTypeSchema = z.enum(["twinly", "fitness", "money"]);
+export type ReviewType = z.infer<typeof reviewTypeSchema>;
+
+/* ----- AI macro tracker ----- */
+
+export interface MealEstimate {
+  description: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  note?: string | null;
+  found?: boolean;
+}
+
+export const analyzeTextSchema = z.object({ text: z.string().min(1).max(500) });
+export type AnalyzeTextInput = z.infer<typeof analyzeTextSchema>;
+
+export const analyzePhotoSchema = z.object({
+  imageBase64: z.string().min(10),
+  mediaType: z.string().max(40).default("image/jpeg"),
+  hint: z.string().max(200).optional(),
+});
+export type AnalyzePhotoInput = z.infer<typeof analyzePhotoSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Twinly sales (manual daily entry; AI weekly review)                        */
+/* -------------------------------------------------------------------------- */
+
+export const createTwinlySaleSchema = z.object({
+  day: dayStringSchema.optional(),
+  revenueAed: z.number().min(0).max(1e9),
+  orders: z.number().int().min(0).max(100000).default(0),
+  costAed: z.number().min(0).max(1e9).default(0),
+  note: z.string().max(300).nullable().optional(),
+});
+export type CreateTwinlySaleInput = z.infer<typeof createTwinlySaleSchema>;
+
+export interface TwinlySale {
+  id: string;
+  day: string;
+  revenueAed: number;
+  orders: number;
+  costAed: number;
+  profitAed: number;
+  note: string | null;
+}
+
+export interface TwinlySalesSummary {
+  today: TwinlySale | null;
+  monthRevenueAed: number;
+  monthProfitAed: number;
+  monthOrders: number;
+  recent: TwinlySale[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Bank statement import (parsed + categorized by Claude, encrypted at rest)  */
+/* -------------------------------------------------------------------------- */
+
+export const importStatementSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/, "Expected YYYY-MM"),
+  filename: z.string().min(1).max(200),
+  kind: z.enum(["pdf", "csv"]),
+  dataBase64: z.string().min(1),
+});
+export type ImportStatementInput = z.infer<typeof importStatementSchema>;
+
+export interface StatementCategoryTotal {
+  category: string;
+  amountAed: number;
+}
+
+export interface StatementSummary {
+  byCategory: StatementCategoryTotal[];
+  totalSpentAed: number;
+  totalIncomeAed: number;
+  savingsRate: number | null;
+  biggest: { description: string; amountAed: number; category: string }[];
+  subscriptions: { description: string; amountAed: number }[];
+  tips: string[];
+  vsLastMonthAed: number | null;
+}
+
+export interface StatementListItem {
+  id: string;
+  month: string;
+  filename: string;
+  createdAt: string;
+  totalSpentAed: number;
+  transactionCount: number;
+}
+
+export interface StatementDetail extends StatementListItem {
+  summary: StatementSummary;
 }

@@ -693,6 +693,7 @@ export function useDeleteStatement() {
 
 /* ===================== Phase 5: notifications + export ===================== */
 import type {
+  IntegrationCheckResult,
   IntegrationStatus,
   NotificationPrefs,
   PushConfig,
@@ -703,6 +704,11 @@ export function useIntegrationStatus() {
     queryKey: ["integration-status"],
     queryFn: () => api.get<IntegrationStatus>("/api/status"),
     staleTime: 30_000,
+  });
+}
+export function useCheckIntegrations() {
+  return useMutation({
+    mutationFn: () => api.post<IntegrationCheckResult>("/api/status/check"),
   });
 }
 

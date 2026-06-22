@@ -34,6 +34,11 @@ async function hevyGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Liveness check: a 1-row fetch that validates the api-key. Throws on fail. */
+export async function pingHevy(): Promise<void> {
+  await hevyGet("/workouts?page=1&pageSize=1");
+}
+
 /** Most recent workouts, newest first, across a few pages. */
 export async function fetchRecentWorkouts(
   pages = 3,

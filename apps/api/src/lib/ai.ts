@@ -16,6 +16,11 @@ export function aiConfigured(): boolean {
   return Boolean(env.ANTHROPIC_API_KEY);
 }
 
+/** Validate the API key + that the configured model is reachable (no tokens). */
+export async function pingAi(): Promise<void> {
+  await getClient().models.retrieve(MODEL);
+}
+
 export type AiMessageParam = Anthropic.MessageParam;
 
 interface RunOpts {

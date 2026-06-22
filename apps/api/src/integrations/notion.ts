@@ -27,6 +27,19 @@ async function notionFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * Liveness check: confirms the token works and (when set) that the integration
+ * has access to the expenses database — the usual Notion gotcha is a valid token
+ * that hasn't been shared with the database. Throws with the API error on fail.
+ */
+export async function pingNotion(): Promise<void> {
+  if (env.NOTION_EXPENSES_DB_ID) {
+    await notionFetch(`/databases/${env.NOTION_EXPENSES_DB_ID}`);
+  } else {
+    await notionFetch("/users/me");
+  }
+}
+
 export interface ParsedExpense {
   notionId: string;
   title: string | null;

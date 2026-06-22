@@ -9,6 +9,7 @@ import {
 } from "../lib/push";
 import {
   useChangePassword,
+  useCheckIntegrations,
   useIntegrationStatus,
   useInvalidatePushConfig,
   useLogout,
@@ -242,16 +243,26 @@ function ToggleRow({
   );
 }
 
+type CheckName = "ai" | "notion" | "hevy";
+
 function IntegrationsCard() {
   const { data } = useIntegrationStatus();
-  const rows = data
+  const check = useCheckIntegrations();
+
+  // Live results keyed by provider, populated after "Test connections".
+  const live: Partial<Record<CheckName, { ok: boolean; detail: string }>> = {};
+  for (const c of check.data?.checks ?? []) {
+    if (c.configured) live[c.name] = { ok: c.ok, detail: c.detail };
+  }
+
+  const rows: { label: string; on: boolean; name?: CheckName }[] = data
     ? [
-        { label: "AI coach (Claude)", on: data.ai, key: "ANTHROPIC_API_KEY" },
-        { label: "Statement encryption", on: data.encryption, key: "ENCRYPTION_KEY" },
-        { label: "Hevy workouts", on: data.hevy, key: "HEVY_API_KEY" },
-        { label: "Notion (Twinly)", on: data.notion, key: "NOTION_TOKEN" },
-        { label: "Apple Health ingest", on: data.healthIngest, key: "HEALTH_INGEST_TOKEN" },
-        { label: "Push notifications", on: data.push, key: "VAPID_*" },
+        { label: "AI coach (Claude)", on: data.ai, name: "ai" },
+        { label: "Notion (Twinly)", on: data.notion, name: "notion" },
+        { label: "Hevy workouts", on: data.hevy, name: "hevy" },
+        { label: "Statement encryption", on: data.encryption },
+        { label: "Apple Health ingest", on: data.healthIngest },
+        { label: "Push notifications", on: data.push },
       ]
     : [];
 
@@ -261,27 +272,61 @@ function IntegrationsCard() {
         <div className="h-28 animate-pulse rounded-xl bg-surface-2" />
       ) : (
         <ul className="space-y-2.5">
-          {rows.map((r) => (
-            <li key={r.label} className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2.5 text-sm text-text">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    r.on ? "bg-good shadow-[0_0_8px] shadow-good/60" : "bg-muted/40"
+          {rows.map((r) => {
+            const result = r.name ? live[r.name] : undefined;
+            const failed = result ? !result.ok : false;
+            const ok = result ? result.ok : r.on;
+            const status = result
+              ? result.ok
+                ? "working"
+                : result.detail
+              : r.on
+                ? "connected"
+                : "not set";
+            return (
+              <li
+                key={r.label}
+                className="flex items-start justify-between gap-3"
+              >
+                <span className="flex items-center gap-2.5 text-sm text-text">
+                  <span
+                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                      failed
+                        ? "bg-bad shadow-[0_0_8px] shadow-bad/60"
+                        : ok
+                          ? "bg-good shadow-[0_0_8px] shadow-good/60"
+                          : "bg-muted/40"
+                    }`}
+                  />
+                  {r.label}
+                </span>
+                <code
+                  title={status}
+                  className={`max-w-[55%] truncate text-right text-xs ${
+                    failed ? "text-bad" : ok ? "text-good" : "text-muted"
                   }`}
-                />
-                {r.label}
-              </span>
-              <code className={`text-xs ${r.on ? "text-good" : "text-muted"}`}>
-                {r.on ? "connected" : "not set"}
-              </code>
-            </li>
-          ))}
+                >
+                  {status}
+                </code>
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      <button
+        onClick={() => check.mutate()}
+        disabled={check.isPending || !data}
+        className="mt-3 w-full rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-medium text-text active:opacity-80 disabled:opacity-50"
+      >
+        {check.isPending ? "Testing…" : "Test connections"}
+      </button>
+
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        Set these as variables on the <span className="text-text">API</span>{" "}
-        service in Railway — not the web service. “not set” means the API process
-        isn’t seeing that key (wrong service, a typo, or it needs a redeploy).
+        Keys go on the <span className="text-text">API</span> service in Railway —
+        not the web service. “not set” means the API isn’t seeing that key; “Test
+        connections” actually calls Claude, Notion, and Hevy so a bad token shows
+        up as a real error.
       </p>
       {data && (
         <p className="mt-1 text-xs text-muted">

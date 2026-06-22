@@ -721,3 +721,14 @@ export interface IntegrationStatus {
   push: boolean;
   model: string;
 }
+
+/** Result of a live "Test connections" ping against the outbound integrations. */
+export interface IntegrationCheck {
+  name: "ai" | "notion" | "hevy";
+  configured: boolean;
+  ok: boolean;
+  detail: string;
+}
+export interface IntegrationCheckResult {
+  checks: IntegrationCheck[];
+}

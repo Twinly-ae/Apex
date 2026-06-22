@@ -1,5 +1,7 @@
 import { prisma } from "./db";
 import { env } from "./env";
+import { aiConfigured } from "./lib/ai";
+import { encryptionConfigured } from "./lib/crypto";
 import { runNotificationChecks } from "./lib/notifications";
 import { pushConfigured } from "./lib/push";
 import { buildServer } from "./server";
@@ -25,6 +27,24 @@ async function main(): Promise<void> {
     app.log.error(err);
     process.exit(1);
   }
+
+  // Boot diagnostics (no secrets): the CORS origin the browser MUST match, and
+  // which integrations this process can actually see. A wrong APP_ORIGIN here is
+  // the usual cause of "Couldn't reach the server" in the web app.
+  app.log.info(
+    {
+      appOrigin: env.APP_ORIGIN,
+      integrations: {
+        ai: aiConfigured(),
+        notion: Boolean(env.NOTION_TOKEN),
+        hevy: Boolean(env.HEVY_API_KEY),
+        healthIngest: Boolean(env.HEALTH_INGEST_TOKEN),
+        encryption: encryptionConfigured(),
+        push: pushConfigured(),
+      },
+    },
+    "Apex API ready — CORS locked to APP_ORIGIN above",
+  );
 
   // Phase 5: in-process reminder scheduler. Each rule is time-gated and deduped,
   // so polling is cheap and safe. Only runs when push is actually configured.

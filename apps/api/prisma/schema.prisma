@@ -1,0 +1,99 @@
+// Apex data model.
+// Phase 1 covers the single user, editable targets, and the fast-logging
+// entities (meals, bodyweight, water, tasks). Later phases add workouts,
+// health metrics, money/accounts, Twinly, and AI chat history.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  settings    Settings?
+  meals       Meal[]
+  bodyweights BodyweightEntry[]
+  waterLogs   WaterLog[]
+  tasks       Task[]
+}
+
+/// Editable recomp targets and preferences. One row per user.
+model Settings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calorieTarget       Int      @default(2200)
+  proteinTarget       Int      @default(155)
+  fatTarget           Int      @default(60)
+  carbTarget          Int      @default(260)
+  waterTargetMl       Int      @default(3000)
+  maintenanceCalories Int      @default(2600)
+  heightCm            Int?     @default(174)
+  weightUnit          String   @default("kg")
+  updatedAt           DateTime @updatedAt
+}
+
+model Meal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eatenAt     DateTime @default(now())
+  source      String   @default("manual") // manual | text | photo | barcode
+  description String
+  calories    Int
+  protein     Float
+  carbs       Float
+  fat         Float
+  raw         Json? // raw AI / Open Food Facts payload, for later
+  createdAt   DateTime @default(now())
+
+  @@index([userId, eatenAt])
+}
+
+model BodyweightEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  measuredAt DateTime @default(now())
+  weightKg   Float
+  source     String   @default("manual") // manual | watch
+  createdAt  DateTime @default(now())
+
+  @@index([userId, measuredAt])
+}
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loggedAt  DateTime @default(now())
+  amountMl  Int
+  createdAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+}
+
+model Task {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  notes     String?
+  dueDate   DateTime?
+  priority  Int       @default(2) // 1 high, 2 medium, 3 low
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, done, dueDate])
+}

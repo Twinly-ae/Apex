@@ -4,20 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "#0b0f14",
-        surface: "#121821",
-        "surface-2": "#1a2330",
-        line: "#243043",
-        text: "#e6edf3",
-        muted: "#8b98a9",
-        accent: "#4f8cff",
-        good: "#36d399",
-        warn: "#fbbd23",
-        bad: "#f87272",
+        // Refined dark — deep neutral-violet base with an indigo/violet accent.
+        bg: "#0a0a0f",
+        surface: "#14141d",
+        "surface-2": "#1d1d29",
+        line: "#2a2a3a",
+        text: "#ececf1",
+        muted: "#9393a6",
+        accent: "#7c6bff",
+        "accent-strong": "#5d44f5",
+        good: "#34d399",
+        warn: "#fbbf24",
+        bad: "#fb7185",
       },
       borderRadius: {
         xl: "1rem",
         "2xl": "1.25rem",
+        "3xl": "1.5rem",
+      },
+      boxShadow: {
+        card: "0 1px 2px rgba(0, 0, 0, 0.4)",
+        // Soft violet glow for primary actions.
+        glow: "0 10px 30px -12px rgba(124, 107, 255, 0.55)",
       },
       fontFamily: {
         sans: [

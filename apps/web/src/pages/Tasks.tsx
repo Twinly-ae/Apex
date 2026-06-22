@@ -1,3 +1,4 @@
+import { Check, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Task } from "@apex/shared";
 import { TaskSheet } from "../components/logging/TaskSheet";
@@ -23,11 +24,11 @@ function TaskRow({ task }: { task: Task }) {
         onClick={() =>
           update.mutate({ id: task.id, input: { done: !task.done } })
         }
-        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-xs ${
+        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${
           task.done ? "border-good bg-good/20 text-good" : "border-line"
         }`}
       >
-        {task.done ? "✓" : ""}
+        {task.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
       </button>
       <div className="flex-1">
         <div className={task.done ? "text-muted line-through" : "text-text"}>
@@ -44,7 +45,7 @@ function TaskRow({ task }: { task: Task }) {
         className="-m-2 p-2 text-muted hover:text-bad"
         aria-label="Delete"
       >
-        🗑
+        <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
       </button>
     </li>
   );
@@ -63,9 +64,10 @@ export function Tasks() {
         <h1 className="text-2xl font-semibold text-text">Tasks</h1>
         <button
           onClick={() => setSheetOpen(true)}
-          className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
+          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3.5 py-2 text-sm font-semibold text-white shadow-glow active:scale-[0.99]"
         >
-          + Add
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          Add
         </button>
       </header>
 
@@ -86,7 +88,7 @@ export function Tasks() {
                 <TaskRow key={t.id} task={t} />
               ))}
               {open.length === 0 && (
-                <li className="py-3 text-sm text-muted">All clear 🎉</li>
+                <li className="py-3 text-sm text-muted">All clear.</li>
               )}
             </ul>
           </section>

@@ -1,3 +1,4 @@
+import { Check, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
@@ -67,9 +68,10 @@ export function Today() {
         </div>
         <Link
           to="/coach"
-          className="shrink-0 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent active:opacity-80"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent active:opacity-80"
         >
-          ✦ Coach
+          <Sparkles className="h-4 w-4" strokeWidth={2} />
+          Coach
         </Link>
       </header>
 
@@ -81,8 +83,9 @@ export function Today() {
               Briefing
             </span>
             {data.briefingByAI && (
-              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
-                ✦ Claude
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                <Sparkles className="h-3 w-3" strokeWidth={2.5} />
+                Claude
               </span>
             )}
           </div>
@@ -181,8 +184,9 @@ export function Today() {
           </div>
           {data.plannedWorkout ? (
             data.plannedWorkoutDone ? (
-              <span className="rounded-full bg-good/15 px-3 py-1 text-sm text-good">
-                Done ✓
+              <span className="inline-flex items-center gap-1 rounded-full bg-good/15 px-3 py-1 text-sm text-good">
+                <Check className="h-4 w-4" strokeWidth={2.5} />
+                Done
               </span>
             ) : (
               <button

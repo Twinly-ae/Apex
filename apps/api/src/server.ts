@@ -21,6 +21,7 @@ import metricsRoutes from "./routes/metrics";
 import moneyRoutes from "./routes/money";
 import pushRoutes from "./routes/push";
 import settingsRoutes from "./routes/settings";
+import statusRoutes from "./routes/status";
 import statementRoutes from "./routes/statements";
 import taskRoutes from "./routes/tasks";
 import todayRoutes from "./routes/today";
@@ -95,6 +96,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(statementRoutes, { prefix: "/api/statements" });
   await app.register(pushRoutes, { prefix: "/api/push" });
   await app.register(exportRoutes, { prefix: "/api/export" });
+  await app.register(statusRoutes, { prefix: "/api/status" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(todayRoutes, { prefix: "/api/today" });
 

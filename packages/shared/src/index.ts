@@ -707,3 +707,17 @@ export interface PushConfig {
   publicKey: string | null;
   prefs: NotificationPrefs;
 }
+
+/**
+ * Which server-side integrations the API can actually see (booleans only — no
+ * keys ever leave the server). Powers the Settings → Integrations diagnostics.
+ */
+export interface IntegrationStatus {
+  ai: boolean;
+  encryption: boolean;
+  hevy: boolean;
+  notion: boolean;
+  healthIngest: boolean;
+  push: boolean;
+  model: string;
+}

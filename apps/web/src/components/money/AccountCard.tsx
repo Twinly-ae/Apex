@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useState } from "react";
 import type { Account } from "@apex/shared";
 import {
@@ -70,7 +71,7 @@ export function AccountCard({ account }: { account: Account }) {
                   className="text-muted hover:text-bad"
                   aria-label="Remove holding"
                 >
-                  ✕
+                  <X className="h-4 w-4" strokeWidth={2} />
                 </button>
               </div>
             </div>

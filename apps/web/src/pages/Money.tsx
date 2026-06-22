@@ -1,3 +1,4 @@
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { NetWorthChart } from "../components/Charts";
 import { AccountCard } from "../components/money/AccountCard";
@@ -49,9 +50,10 @@ export function Money() {
           </h2>
           <button
             onClick={() => setAcctOpen(true)}
-            className="text-sm text-accent"
+            className="flex items-center gap-1 text-sm font-medium text-accent active:opacity-70"
           >
-            + Add
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Add
           </button>
         </div>
         {(money?.accounts ?? []).length === 0 ? (
@@ -75,9 +77,10 @@ export function Money() {
           </h2>
           <button
             onClick={() => setBillOpen(true)}
-            className="text-sm text-accent"
+            className="flex items-center gap-1 text-sm font-medium text-accent active:opacity-70"
           >
-            + Add
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Add
           </button>
         </div>
         {(bills ?? []).length === 0 ? (
@@ -100,7 +103,7 @@ export function Money() {
                   className="-m-2 p-2 text-muted hover:text-bad"
                   aria-label="Delete bill"
                 >
-                  🗑
+                  <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
                 </button>
               </li>
             ))}
@@ -120,8 +123,12 @@ export function Money() {
           <button
             onClick={() => syncTwinly.mutate()}
             disabled={syncTwinly.isPending}
-            className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-text active:opacity-80"
+            className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-text active:opacity-80 disabled:opacity-50"
           >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${syncTwinly.isPending ? "animate-spin" : ""}`}
+              strokeWidth={2}
+            />
             {syncTwinly.isPending ? "Syncing…" : "Sync Notion"}
           </button>
         </div>

@@ -692,7 +692,19 @@ export function useDeleteStatement() {
 }
 
 /* ===================== Phase 5: notifications + export ===================== */
-import type { NotificationPrefs, PushConfig } from "@apex/shared";
+import type {
+  IntegrationStatus,
+  NotificationPrefs,
+  PushConfig,
+} from "@apex/shared";
+
+export function useIntegrationStatus() {
+  return useQuery({
+    queryKey: ["integration-status"],
+    queryFn: () => api.get<IntegrationStatus>("/api/status"),
+    staleTime: 30_000,
+  });
+}
 
 export function usePushConfig() {
   return useQuery({

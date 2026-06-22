@@ -9,6 +9,7 @@ import {
 } from "../lib/push";
 import {
   useChangePassword,
+  useIntegrationStatus,
   useInvalidatePushConfig,
   useLogout,
   useMe,
@@ -121,7 +122,7 @@ function TargetsCard() {
           disabled={update.isPending}
           className={primaryButtonClass}
         >
-          {update.isPending ? "Saving…" : saved ? "Saved ✓" : "Save targets"}
+          {update.isPending ? "Saving…" : saved ? "Saved" : "Save targets"}
         </button>
       </form>
     </Card>
@@ -238,6 +239,56 @@ function ToggleRow({
       </div>
       <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
+  );
+}
+
+function IntegrationsCard() {
+  const { data } = useIntegrationStatus();
+  const rows = data
+    ? [
+        { label: "AI coach (Claude)", on: data.ai, key: "ANTHROPIC_API_KEY" },
+        { label: "Statement encryption", on: data.encryption, key: "ENCRYPTION_KEY" },
+        { label: "Hevy workouts", on: data.hevy, key: "HEVY_API_KEY" },
+        { label: "Notion (Twinly)", on: data.notion, key: "NOTION_TOKEN" },
+        { label: "Apple Health ingest", on: data.healthIngest, key: "HEALTH_INGEST_TOKEN" },
+        { label: "Push notifications", on: data.push, key: "VAPID_*" },
+      ]
+    : [];
+
+  return (
+    <Card title="Integrations">
+      {!data ? (
+        <div className="h-28 animate-pulse rounded-xl bg-surface-2" />
+      ) : (
+        <ul className="space-y-2.5">
+          {rows.map((r) => (
+            <li key={r.label} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2.5 text-sm text-text">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    r.on ? "bg-good shadow-[0_0_8px] shadow-good/60" : "bg-muted/40"
+                  }`}
+                />
+                {r.label}
+              </span>
+              <code className={`text-xs ${r.on ? "text-good" : "text-muted"}`}>
+                {r.on ? "connected" : "not set"}
+              </code>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        Set these as variables on the <span className="text-text">API</span>{" "}
+        service in Railway — not the web service. “not set” means the API process
+        isn’t seeing that key (wrong service, a typo, or it needs a redeploy).
+      </p>
+      {data && (
+        <p className="mt-1 text-xs text-muted">
+          AI model: <span className="text-text">{data.model}</span>
+        </p>
+      )}
+    </Card>
   );
 }
 
@@ -437,6 +488,7 @@ export function Settings() {
       <h1 className="text-2xl font-semibold text-text">Settings</h1>
 
       <TargetsCard />
+      <IntegrationsCard />
       <NotificationsCard />
       <PasswordCard />
 

@@ -1,3 +1,4 @@
+import { Droplets, type LucideIcon, Scale, Utensils, Plus } from "lucide-react";
 import { useState } from "react";
 import { useAddWater } from "../lib/queries";
 import { MealSheet } from "./logging/MealSheet";
@@ -13,34 +14,29 @@ export function QuickLogRow({ defaultKg }: { defaultKg?: number | null }) {
   const [sheet, setSheet] = useState<ActiveSheet>(null);
   const addWater = useAddWater();
 
-  const buttons = [
-    { key: "meal", label: "Meal", icon: "🍽️", onClick: () => setSheet("meal") },
-    {
-      key: "weight",
-      label: "Weight",
-      icon: "⚖️",
-      onClick: () => setSheet("weight"),
-    },
+  const buttons: { key: string; label: string; icon: LucideIcon; onClick: () => void }[] = [
+    { key: "meal", label: "Meal", icon: Utensils, onClick: () => setSheet("meal") },
+    { key: "weight", label: "Weight", icon: Scale, onClick: () => setSheet("weight") },
     {
       key: "water",
       label: `+${QUICK_WATER_ML}ml`,
-      icon: "💧",
+      icon: Droplets,
       onClick: () => addWater.mutate({ amountMl: QUICK_WATER_ML }),
     },
-    { key: "task", label: "Task", icon: "✓", onClick: () => setSheet("task") },
+    { key: "task", label: "Task", icon: Plus, onClick: () => setSheet("task") },
   ];
 
   return (
     <>
       <div className="grid grid-cols-4 gap-2">
-        {buttons.map((b) => (
+        {buttons.map(({ key, label, icon: Icon, onClick }) => (
           <button
-            key={b.key}
-            onClick={b.onClick}
-            className="flex flex-col items-center gap-1 rounded-2xl border border-line bg-surface py-3 active:bg-surface-2"
+            key={key}
+            onClick={onClick}
+            className="flex flex-col items-center gap-1.5 rounded-2xl border border-line bg-surface py-3.5 text-muted transition-colors active:bg-surface-2"
           >
-            <span className="text-2xl leading-none">{b.icon}</span>
-            <span className="text-xs text-muted">{b.label}</span>
+            <Icon className="h-5 w-5 text-accent" strokeWidth={2} />
+            <span className="text-xs">{label}</span>
           </button>
         ))}
       </div>

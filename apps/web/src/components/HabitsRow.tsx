@@ -1,3 +1,4 @@
+import { Check, Circle, Flame, X } from "lucide-react";
 import type { Habit } from "@apex/shared";
 import { useDeleteHabit, useToggleHabit } from "../lib/queries";
 
@@ -29,19 +30,28 @@ export function HabitsRow({
                 : "border-line bg-surface text-text"
             }`}
           >
-            <span>{h.emoji ?? (h.doneToday ? "✓" : "○")}</span>
+            {h.emoji ? (
+              <span>{h.emoji}</span>
+            ) : h.doneToday ? (
+              <Check className="h-4 w-4" strokeWidth={2.5} />
+            ) : (
+              <Circle className="h-4 w-4" strokeWidth={2} />
+            )}
             <span>{h.name}</span>
             {h.streak > 0 && (
-              <span className="text-xs text-muted">🔥{h.streak}</span>
+              <span className="flex items-center gap-0.5 text-xs text-muted">
+                <Flame className="h-3.5 w-3.5 text-warn" strokeWidth={2} />
+                {h.streak}
+              </span>
             )}
           </button>
           {editable && (
             <button
               onClick={() => del.mutate(h.id)}
               aria-label="Delete habit"
-              className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-bad/80 text-[9px] text-white"
+              className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-bad/80 text-white"
             >
-              ✕
+              <X className="h-2.5 w-2.5" strokeWidth={3} />
             </button>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { Workout } from "@apex/shared";
 import {
@@ -174,7 +175,7 @@ export function Trends() {
                   className="-m-2 p-2 text-muted hover:text-bad"
                   aria-label="Delete workout"
                 >
-                  🗑
+                  <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
                 </button>
               </li>
             ))}

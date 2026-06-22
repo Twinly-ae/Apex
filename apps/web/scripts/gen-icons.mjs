@@ -22,7 +22,7 @@ await sharp(logo).resize(180, 180).png().toFile(resolve(outDir, "apple-touch-ico
 const inner = Math.round(512 * 0.62);
 const peak = await sharp(logo).resize(inner, inner).png().toBuffer();
 await sharp({
-  create: { width: 512, height: 512, channels: 4, background: "#0b0f14" },
+  create: { width: 512, height: 512, channels: 4, background: "#0a0a0f" },
 })
   .composite([{ input: peak, gravity: "center" }])
   .png()

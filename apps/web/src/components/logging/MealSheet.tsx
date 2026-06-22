@@ -1,3 +1,4 @@
+import { Camera } from "lucide-react";
 import { useState } from "react";
 import type { MealEstimate, MealSource } from "@apex/shared";
 import {
@@ -182,8 +183,9 @@ export function MealSheet({ open, onClose }: Props) {
           </div>
         )}
         {mode === "photo" && (
-          <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-line bg-surface-2 py-6 text-sm text-muted">
-            {estimating ? "Analyzing photo…" : "📷 Tap to take / choose a photo"}
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface-2 py-6 text-sm text-muted">
+            <Camera className="h-5 w-5" strokeWidth={2} />
+            {estimating ? "Analyzing photo…" : "Tap to take / choose a photo"}
             <input
               type="file"
               accept="image/*"

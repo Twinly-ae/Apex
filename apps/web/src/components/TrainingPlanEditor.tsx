@@ -47,7 +47,7 @@ export function TrainingPlanEditor() {
         disabled={update.isPending}
         className="mt-3 w-full rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-medium text-text active:opacity-80"
       >
-        {update.isPending ? "Saving…" : saved ? "Saved ✓" : "Save plan"}
+        {update.isPending ? "Saving…" : saved ? "Saved" : "Save plan"}
       </button>
     </div>
   );

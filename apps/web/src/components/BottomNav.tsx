@@ -1,31 +1,52 @@
+import {
+  Home,
+  type LucideIcon,
+  ListChecks,
+  Settings as SettingsIcon,
+  Target,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-const tabs = [
-  { to: "/", label: "Today", icon: "🏠", end: true },
-  { to: "/tasks", label: "Tasks", icon: "✓" },
-  { to: "/goals", label: "Goals", icon: "🎯" },
-  { to: "/trends", label: "Trends", icon: "📈" },
-  { to: "/money", label: "Money", icon: "💰" },
-  { to: "/settings", label: "Settings", icon: "⚙" },
+const tabs: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
+  { to: "/", label: "Today", icon: Home, end: true },
+  { to: "/tasks", label: "Tasks", icon: ListChecks },
+  { to: "/goals", label: "Goals", icon: Target },
+  { to: "/trends", label: "Trends", icon: TrendingUp },
+  { to: "/money", label: "Money", icon: Wallet },
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur safe-bottom">
-      <div className="mx-auto flex max-w-md">
-        {tabs.map((t) => (
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/80 backdrop-blur-lg safe-bottom">
+      <div className="mx-auto flex max-w-md px-1">
+        {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
-            key={t.to}
-            to={t.to}
-            end={t.end}
-            className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] ${
-                isActive ? "text-accent" : "text-muted"
-              }`
-            }
+            key={to}
+            to={to}
+            end={end}
+            className="flex flex-1 flex-col items-center gap-1 py-2.5"
           >
-            <span className="text-lg leading-none">{t.icon}</span>
-            {t.label}
+            {({ isActive }) => (
+              <>
+                <span
+                  className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${
+                    isActive ? "bg-accent/15 text-accent" : "text-muted"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+                </span>
+                <span
+                  className={`text-[10px] font-medium ${
+                    isActive ? "text-accent" : "text-muted"
+                  }`}
+                >
+                  {label}
+                </span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>

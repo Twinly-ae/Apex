@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 
 interface SheetProps {
@@ -46,7 +47,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
             className="-m-2 p-2 text-muted hover:text-text"
             aria-label="Close"
           >
-            ✕
+            <X className="h-5 w-5" strokeWidth={2} />
           </button>
         </div>
         {children}
@@ -57,10 +58,10 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
 
 /** Shared input styling — large tap targets, 16px text (no iOS zoom). */
 export const inputClass =
-  "w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-text placeholder:text-muted outline-none focus:border-accent";
+  "w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-text placeholder:text-muted outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30";
 
 export const primaryButtonClass =
-  "w-full rounded-xl bg-accent px-4 py-3.5 text-center font-semibold text-white active:opacity-80 disabled:opacity-50";
+  "w-full rounded-xl bg-gradient-to-br from-accent to-accent-strong px-4 py-3.5 text-center font-semibold text-white shadow-glow transition active:scale-[0.99] active:opacity-90 disabled:opacity-50 disabled:shadow-none";
 
 /** Select styling: hides the native chevron and draws our own (see index.css). */
 export const selectClass = `${inputClass} appearance-none pr-10 select-chevron`;

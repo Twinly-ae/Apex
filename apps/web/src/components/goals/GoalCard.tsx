@@ -1,3 +1,4 @@
+import { Check, X } from "lucide-react";
 import { useState } from "react";
 import type { Goal, GoalPaceStatus } from "@apex/shared";
 import {
@@ -77,13 +78,13 @@ export function GoalCard({ goal }: { goal: Goal }) {
                 onClick={() =>
                   updateMilestone.mutate({ id: m.id, input: { done: !m.done } })
                 }
-                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 text-[10px] ${
+                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${
                   m.done
                     ? "border-good bg-good/20 text-good"
                     : "border-line"
                 }`}
               >
-                {m.done ? "✓" : ""}
+                {m.done && <Check className="h-3 w-3" strokeWidth={3} />}
               </button>
               <span className={m.done ? "text-muted line-through" : "text-text"}>
                 {m.title}
@@ -93,7 +94,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
                 className="ml-auto text-muted hover:text-bad"
                 aria-label="Delete milestone"
               >
-                ✕
+                <X className="h-4 w-4" strokeWidth={2} />
               </button>
             </li>
           ))}

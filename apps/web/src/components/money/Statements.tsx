@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { StatementSummary } from "@apex/shared";
 import {
@@ -194,7 +195,7 @@ export function Statements() {
                 className="-m-2 p-2 text-muted hover:text-bad"
                 aria-label="Delete statement"
               >
-                🗑
+                <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
               </button>
             </li>
           ))}

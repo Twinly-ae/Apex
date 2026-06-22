@@ -675,3 +675,35 @@ export interface StatementListItem {
 export interface StatementDetail extends StatementListItem {
   summary: StatementSummary;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Phase 5: web push notifications + data export                              */
+/* -------------------------------------------------------------------------- */
+
+/** Browser PushSubscription, as serialized by the Push API. */
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url().max(1000),
+  keys: z.object({
+    p256dh: z.string().min(1).max(200),
+    auth: z.string().min(1).max(200),
+  }),
+});
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;
+
+export const unsubscribeSchema = z.object({
+  endpoint: z.string().url().max(1000),
+});
+
+/** Per-category notification toggles. */
+export const notificationPrefsSchema = z.object({
+  notifyBills: z.boolean(),
+  notifyStreak: z.boolean(),
+  notifyLogging: z.boolean(),
+});
+export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
+
+export interface PushConfig {
+  configured: boolean;
+  publicKey: string | null;
+  prefs: NotificationPrefs;
+}

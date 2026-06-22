@@ -10,7 +10,7 @@ Phased build plan. Each phase ends with a usable app; nothing is a big-bang.
 | 2 | Goals-with-deadlines engine, habits, fitness trends | ✅ |
 | 3 | Integrations: Hevy, Apple Health, Notion, money | ✅ |
 | 4 | AI: briefing, time-blocking, macro tracker, statements, chat | ✅ |
-| 5 | Push notifications, data export, deploy | ⏳ |
+| 5 | Push notifications, data export, deploy | ✅ |
 
 ---
 
@@ -90,15 +90,26 @@ checks for the key and degrades gracefully (503 / hidden UI) when it's absent.
 - **Needs from you:** `ANTHROPIC_API_KEY`, `ENCRYPTION_KEY` (can generate),
   fixed weekly commitments, savings goal.
 
-## Phase 5 — Polish, notifications, export, deploy ⏳
+## Phase 5 — Notifications, export, deploy ✅
 
-- **Web push** (opt-in): logging nudges, bills due, gym-streak alerts — each
-  toggleable.
-- **One-click export** of all data (JSON/CSV).
-- **Deploy:** API + Postgres on Railway, PWA on Cloudflare Pages, HTTPS/DNS via
-  Cloudflare, optional Cloudflare Access limited to your email.
-- **Needs from you:** `VAPID_*` (can generate), domain/Cloudflare access,
-  production env vars.
+- **Web push** (opt-in, per-device): a `PushSubscription` per browser + a
+  `sw-push.js` handler in the generated service worker. Three toggleable
+  reminder rules — **bills due** (within 3 days), **gym streak** (evening nudge
+  if today's planned session isn't logged), **logging nudge** (late nudge if
+  nothing's logged) — run by an in-process scheduler (every 15 min, each rule
+  time-gated and deduped via `NotificationLog`). A "send test" button verifies
+  delivery. All off until `VAPID_*` is set.
+- **One-click export:** `GET /api/export` returns a single JSON of everything
+  you've logged, downloaded from Settings. Excludes the password hash and the
+  encrypted bank-statement blobs (statements export as their summaries).
+- **Deploy:** API + Postgres on Railway (`prisma migrate deploy` on start), PWA
+  static via `serve.mjs` on Railway, DNS/HTTPS via Cloudflare
+  (`app.my-apex.net` = API, `my-apex.net` = web). Optional Cloudflare Access can
+  be layered in front, limited to your email.
+- **New tables:** `PushSubscription`, `NotificationLog` (+ `Settings` notify
+  toggles).
+- **Needs from you:** `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (generate:
+  `npx web-push generate-vapid-keys`), optional `VAPID_SUBJECT`.
 
 ---
 

@@ -690,3 +690,32 @@ export function useDeleteStatement() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["statements"] }),
   });
 }
+
+/* ===================== Phase 5: notifications + export ===================== */
+import type { NotificationPrefs, PushConfig } from "@apex/shared";
+
+export function usePushConfig() {
+  return useQuery({
+    queryKey: ["push-config"],
+    queryFn: () => api.get<PushConfig>("/api/push/config"),
+    staleTime: 30_000,
+  });
+}
+export function useUpdatePushPrefs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (prefs: NotificationPrefs) =>
+      api.put<NotificationPrefs>("/api/push/prefs", prefs),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["push-config"] }),
+  });
+}
+export function useSendTestPush() {
+  return useMutation({
+    mutationFn: () => api.post<{ ok: true; sent: number }>("/api/push/test"),
+  });
+}
+/** After enabling/disabling a subscription, refresh the config view. */
+export function useInvalidatePushConfig() {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: ["push-config"] });
+}

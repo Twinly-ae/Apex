@@ -12,12 +12,14 @@ import { env, isProd } from "./env";
 import aiRoutes from "./routes/ai";
 import billRoutes from "./routes/bills";
 import bodyweightRoutes from "./routes/bodyweight";
+import exportRoutes from "./routes/export";
 import goalRoutes from "./routes/goals";
 import habitRoutes from "./routes/habits";
 import ingestRoutes from "./routes/ingest";
 import mealRoutes from "./routes/meals";
 import metricsRoutes from "./routes/metrics";
 import moneyRoutes from "./routes/money";
+import pushRoutes from "./routes/push";
 import settingsRoutes from "./routes/settings";
 import statementRoutes from "./routes/statements";
 import taskRoutes from "./routes/tasks";
@@ -91,6 +93,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(twinlyRoutes, { prefix: "/api/twinly" });
   await app.register(aiRoutes, { prefix: "/api/ai" });
   await app.register(statementRoutes, { prefix: "/api/statements" });
+  await app.register(pushRoutes, { prefix: "/api/push" });
+  await app.register(exportRoutes, { prefix: "/api/export" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(todayRoutes, { prefix: "/api/today" });
 

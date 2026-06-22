@@ -12,6 +12,9 @@ type DbSettings = {
   maintenanceCalories: number;
   heightCm: number | null;
   weightUnit: string;
+  notifyBills: boolean;
+  notifyStreak: boolean;
+  notifyLogging: boolean;
   updatedAt: Date;
 };
 

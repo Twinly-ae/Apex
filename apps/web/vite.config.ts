@@ -42,8 +42,12 @@ export default defineConfig({
         // responses to disk — health & money data stays in memory (TanStack
         // Query) and is refetched on open.
         navigateFallback: "index.html",
+        // Don't let the SPA fallback swallow the API or our extra SW script.
+        navigateFallbackDenylist: [/^\/api/, /sw-push\.js$/],
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Phase 5: add our push + notificationclick handlers to the generated SW.
+        importScripts: ["/sw-push.js"],
       },
       devOptions: { enabled: false },
     }),

@@ -34,6 +34,13 @@ const schema = z.object({
   // 32-byte key (hex or base64) for AES-256-GCM. Required only for bank
   // statements; generate: openssl rand -hex 32
   ENCRYPTION_KEY: z.string().optional(),
+
+  // Phase 5 — Web Push (VAPID). All optional; notifications stay off until set.
+  // Generate a keypair: npx web-push generate-vapid-keys
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  // Contact URI sent to push services, e.g. mailto:you@example.com
+  VAPID_SUBJECT: z.string().optional().default("mailto:admin@my-apex.net"),
 });
 
 const parsed = schema.safeParse(process.env);

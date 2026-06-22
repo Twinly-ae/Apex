@@ -38,6 +38,8 @@ model User {
   twinlySales       TwinlySale[]
   bankStatements    BankStatement[]
   transactions      Transaction[]
+  pushSubscriptions PushSubscription[]
+  notificationLogs  NotificationLog[]
 }
 
 /// Editable recomp targets and preferences. One row per user.
@@ -53,6 +55,10 @@ model Settings {
   maintenanceCalories Int      @default(2600)
   heightCm            Int?     @default(174)
   weightUnit          String   @default("kg")
+  // Phase 5 — push notification category toggles.
+  notifyBills         Boolean  @default(true)
+  notifyStreak        Boolean  @default(true)
+  notifyLogging       Boolean  @default(true)
   updatedAt           DateTime @updatedAt
 }
 
@@ -374,4 +380,36 @@ model Transaction {
 
   @@index([statementId])
   @@index([userId, day])
+}
+
+// ---- Phase 5: web push notifications ---------------------------------------
+
+/// One row per browser/device push subscription (Web Push API).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Sent-notification log — dedupes reminders and powers an in-app history.
+model NotificationLog {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // bill | streak | logging
+  dedupeKey String // e.g. bill:<id>:<dueDay> or streak:<day>
+  title     String
+  body      String
+  url       String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
 }

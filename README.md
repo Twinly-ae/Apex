@@ -88,7 +88,7 @@ Later phases add `ANTHROPIC_API_KEY`, `HEVY_API_KEY`, `NOTION_TOKEN`,
 
 1. New Railway project → add the **Postgres** plugin (sets `DATABASE_URL`).
 2. Add a service from this GitHub repo for the API:
-   - **Build:** `npm install && npm run build:shared && npm run build -w @apex/api`
+   - **Build:** `npm install && npm run build --workspace=@apex/api`
    - **Start:** `npm run db:migrate -w @apex/api && npm run start -w @apex/api`
    - **Variables:** `SESSION_SECRET`, `APP_ORIGIN` (your web URL), `NODE_ENV=production`,
      `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD` (then seed once).
@@ -96,7 +96,7 @@ Later phases add `ANTHROPIC_API_KEY`, `HEVY_API_KEY`, `NOTION_TOKEN`,
 
 **Web (PWA) → Cloudflare Pages**
 
-- Build command: `npm install && npm run build:shared && npm run build -w @apex/web`
+- Build command: `npm install && npm run build --workspace=@apex/web`
 - Output directory: `apps/web/dist`
 - Variable: `VITE_API_URL=https://<your-api-domain>`
 - `apps/web/public/_redirects` already handles SPA routing.

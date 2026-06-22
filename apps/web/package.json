@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p ../../packages/shared/tsconfig.json && vite build",
+    "start": "node serve.mjs",
     "preview": "vite preview --port 5173",
     "typecheck": "tsc -p ../../packages/shared/tsconfig.json && tsc -p tsconfig.json --noEmit",
     "gen:icons": "node scripts/gen-icons.mjs"

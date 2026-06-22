@@ -14,7 +14,23 @@ const schema = z.object({
   SESSION_SECRET: z
     .string()
     .min(32, "SESSION_SECRET must be at least 32 characters"),
-  APP_ORIGIN: z.string().url("APP_ORIGIN must be a full URL"),
+  // One web origin, or a comma-separated list (e.g. apex + www). Each part must
+  // be a full URL; a stray trailing slash is tolerated by the CORS check.
+  APP_ORIGIN: z
+    .string()
+    .min(1, "APP_ORIGIN is required")
+    .refine(
+      (v) =>
+        v.split(",").every((o) => {
+          try {
+            new URL(o.trim());
+            return true;
+          } catch {
+            return false;
+          }
+        }),
+      "APP_ORIGIN must be a full URL (or comma-separated list of full URLs)",
+    ),
   // Seed-only; not required to boot the server.
   ADMIN_EMAIL: z.string().email().optional(),
   ADMIN_INITIAL_PASSWORD: z.string().min(1).optional(),

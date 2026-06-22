@@ -46,8 +46,22 @@ export async function buildServer(): Promise<FastifyInstance> {
     contentSecurityPolicy: false,
   });
 
+  // Allow one or more web origins (comma-separated in APP_ORIGIN), tolerating a
+  // stray trailing slash. A trailing slash on APP_ORIGIN is the usual reason the
+  // browser's CORS check fails and the app shows "Couldn't reach the server".
+  const stripSlash = (o: string): string => o.trim().replace(/\/+$/, "");
+  const allowedOrigins = new Set(
+    env.APP_ORIGIN.split(",").map(stripSlash).filter(Boolean),
+  );
   await app.register(cors, {
-    origin: env.APP_ORIGIN, // only our own PWA may call the API
+    origin(origin, cb) {
+      // Non-browser clients (curl, health checks, same-origin) send no Origin.
+      if (!origin || allowedOrigins.has(stripSlash(origin))) {
+        cb(null, true);
+        return;
+      }
+      cb(null, false);
+    },
     credentials: true, // allow the session cookie
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   });

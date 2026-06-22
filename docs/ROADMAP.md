@@ -9,7 +9,7 @@ Phased build plan. Each phase ends with a usable app; nothing is a big-bang.
 | 1 | PWA shell, secure login, Today, fast logging | ✅ |
 | 2 | Goals-with-deadlines engine, habits, fitness trends | ✅ |
 | 3 | Integrations: Hevy, Apple Health, Notion, money | ✅ |
-| 4 | AI: briefing, time-blocking, macro tracker, statements, chat | 🚧 |
+| 4 | AI: briefing, time-blocking, macro tracker, statements, chat | ✅ |
 | 5 | Push notifications, data export, deploy | ⏳ |
 
 ---
@@ -72,9 +72,10 @@ Stop typing what a machine can fetch. Each integration is a swappable adapter.
   `NOTION_TOKEN`; investing positions + class/gym schedule entered in-app. I
   generate `HEALTH_INGEST_TOKEN`.
 
-## Phase 4 — AI coach ⏳
+## Phase 4 — AI coach ✅
 
-Anthropic called **only** from the backend.
+Anthropic (`claude-opus-4-8`) called **only** from the backend; every feature
+checks for the key and degrades gracefully (503 / hidden UI) when it's absent.
 
 - **Daily briefing + time-blocked plan** filling free slots around classes/gym.
 - **AI macro tracker:** photo or plain text → Claude estimates calories+macros;

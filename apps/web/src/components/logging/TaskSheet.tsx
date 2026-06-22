@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { TaskPriority } from "@apex/shared";
 import { useAddTask } from "../../lib/queries";
-import { Sheet, inputClass, primaryButtonClass } from "../ui/Sheet";
+import { Sheet, inputClass, primaryButtonClass, selectClass } from "../ui/Sheet";
 
 interface Props {
   open: boolean;
@@ -64,7 +64,7 @@ export function TaskSheet({ open, onClose }: Props) {
               onChange={(e) =>
                 setPriority(Number(e.target.value) as TaskPriority)
               }
-              className={inputClass}
+              className={selectClass}
             >
               {PRIORITIES.map((p) => (
                 <option key={p.value} value={p.value}>

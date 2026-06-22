@@ -29,6 +29,35 @@ textarea {
   font-size: 16px;
 }
 
+/* Remove the number-input spinner arrows (cleaner, esp. on mobile) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Make the date-picker icon visible on dark backgrounds */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+/* Native <select>: dark option list + a custom chevron via .select-chevron */
+select option {
+  background: #121821;
+  color: #e6edf3;
+}
+.select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b98a9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+
 /* Safe-area helpers for notched phones */
 .safe-top {
   padding-top: max(env(safe-area-inset-top), 0px);

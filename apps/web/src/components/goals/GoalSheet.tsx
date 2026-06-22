@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { GoalCategory } from "@apex/shared";
 import { useAddGoal } from "../../lib/queries";
-import { Sheet, inputClass, primaryButtonClass } from "../ui/Sheet";
+import { Sheet, inputClass, primaryButtonClass, selectClass } from "../ui/Sheet";
 
 const CATEGORIES: GoalCategory[] = [
   "business",
@@ -66,7 +66,7 @@ export function GoalSheet({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as GoalCategory)}
-              className={inputClass}
+              className={selectClass}
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>

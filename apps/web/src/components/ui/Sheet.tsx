@@ -61,3 +61,6 @@ export const inputClass =
 
 export const primaryButtonClass =
   "w-full rounded-xl bg-accent px-4 py-3.5 text-center font-semibold text-white active:opacity-80 disabled:opacity-50";
+
+/** Select styling: hides the native chevron and draws our own (see index.css). */
+export const selectClass = `${inputClass} appearance-none pr-10 select-chevron`;

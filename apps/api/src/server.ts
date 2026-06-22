@@ -86,6 +86,27 @@ export async function buildServer(): Promise<FastifyInstance> {
     },
   });
 
+  // Tolerate empty bodies on JSON requests. The web client may send
+  // `Content-Type: application/json` with no body (bodyless POSTs like sync /
+  // toggle, and every DELETE); without this Fastify rejects them 400 with
+  // "Body cannot be empty when content-type is set to 'application/json'".
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_req, body, done) => {
+      if (body === "" || body == null) {
+        done(null, undefined);
+        return;
+      }
+      try {
+        done(null, JSON.parse(body as string));
+      } catch (err) {
+        (err as FastifyError).statusCode = 400;
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // ---- Health check (unauthenticated) -------------------------------------
   app.get("/api/health", async () => ({ ok: true, ts: new Date().toISOString() }));
 

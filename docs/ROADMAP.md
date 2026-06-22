@@ -7,8 +7,8 @@ Phased build plan. Each phase ends with a usable app; nothing is a big-bang.
 | Phase | Theme | Status |
 | --- | --- | --- |
 | 1 | PWA shell, secure login, Today, fast logging | ✅ |
-| 2 | Goals-with-deadlines engine, habits, fitness trends | 🚧 |
-| 3 | Integrations: Hevy, Apple Health, Notion, money | ⏳ |
+| 2 | Goals-with-deadlines engine, habits, fitness trends | ✅ |
+| 3 | Integrations: Hevy, Apple Health, Notion, money | 🚧 |
 | 4 | AI: briefing, time-blocking, macro tracker, statements, chat | ⏳ |
 | 5 | Push notifications, data export, deploy | ⏳ |
 
@@ -35,7 +35,7 @@ logging on Postgres.
 - **DB:** `User`, `Settings`, `Meal`, `BodyweightEntry`, `WaterLog`, `Task` +
   initial migration + idempotent single-user seed.
 
-## Phase 2 — Goals engine, habits, fitness trends 🚧
+## Phase 2 — Goals engine, habits, fitness trends ✅
 
 Turn ambitions into "what do I do *today*," and visualise the recomp.
 

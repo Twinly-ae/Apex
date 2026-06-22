@@ -1,7 +1,10 @@
+import { useState } from "react";
 import type { Task } from "@apex/shared";
+import { HabitsRow } from "../components/HabitsRow";
 import { MacroBar } from "../components/MacroBar";
 import { QuickLogRow } from "../components/QuickLogRow";
 import { StatCard } from "../components/StatCard";
+import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { formatDate, kg, liters, round } from "../lib/format";
 import { useToday, useUpdateTask } from "../lib/queries";
 
@@ -26,6 +29,7 @@ function PriorityItem({ task }: { task: Task }) {
 
 export function Today() {
   const { data, isLoading } = useToday();
+  const [workoutOpen, setWorkoutOpen] = useState(false);
 
   if (isLoading || !data) {
     return (
@@ -51,6 +55,16 @@ export function Today() {
         <p className="text-sm leading-relaxed text-text">{data.briefing}</p>
       </div>
 
+      {/* Today's focus — next step from the most urgent goal */}
+      {data.todaysFocus && (
+        <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4">
+          <div className="text-xs uppercase tracking-wide text-accent">
+            Today's focus
+          </div>
+          <p className="mt-1 text-text">{data.todaysFocus}</p>
+        </div>
+      )}
+
       <QuickLogRow defaultKg={data.latestBodyweightKg} />
 
       {/* Top priorities */}
@@ -73,6 +87,46 @@ export function Today() {
           </ul>
         )}
       </section>
+
+      {/* Training today */}
+      <section className="rounded-2xl border border-line bg-surface p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted">
+              Training today
+            </div>
+            <div className="mt-1 text-lg font-semibold text-text">
+              {data.plannedWorkout ?? "Rest day"}
+            </div>
+          </div>
+          {data.plannedWorkout ? (
+            data.plannedWorkoutDone ? (
+              <span className="rounded-full bg-good/15 px-3 py-1 text-sm text-good">
+                Done ✓
+              </span>
+            ) : (
+              <button
+                onClick={() => setWorkoutOpen(true)}
+                className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white active:opacity-80"
+              >
+                Log session
+              </button>
+            )
+          ) : (
+            <span className="text-sm text-muted">Recover well</span>
+          )}
+        </div>
+      </section>
+
+      {/* Habits */}
+      {data.habits.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted">
+            Habits
+          </h2>
+          <HabitsRow habits={data.habits} />
+        </section>
+      )}
 
       {/* Today's targets */}
       <section className="rounded-2xl border border-line bg-surface p-4">
@@ -122,8 +176,14 @@ export function Today() {
         <StatCard label="Calories out" value="—" sub="Apple Health" soon />
         <StatCard label="Net worth" value="—" sub="Phase 3" soon />
         <StatCard label="Twinly today" value="—" sub="Phase 4" soon />
-        <StatCard label="Training streak" value="—" sub="Phase 3" soon />
+        <StatCard label="Training streak" value="—" sub="see Trends" soon />
       </section>
+
+      <WorkoutSheet
+        open={workoutOpen}
+        onClose={() => setWorkoutOpen(false)}
+        defaultTitle={data.plannedWorkout ?? undefined}
+      />
     </div>
   );
 }

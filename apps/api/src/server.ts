@@ -10,11 +10,16 @@ import Fastify, {
 import { registerAuth } from "./auth";
 import { env, isProd } from "./env";
 import bodyweightRoutes from "./routes/bodyweight";
+import goalRoutes from "./routes/goals";
+import habitRoutes from "./routes/habits";
 import mealRoutes from "./routes/meals";
 import settingsRoutes from "./routes/settings";
 import taskRoutes from "./routes/tasks";
 import todayRoutes from "./routes/today";
+import trainingPlanRoutes from "./routes/training-plan";
+import trendsRoutes from "./routes/trends";
 import waterRoutes from "./routes/water";
+import workoutRoutes from "./routes/workouts";
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -68,6 +73,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(bodyweightRoutes, { prefix: "/api/bodyweight" });
   await app.register(waterRoutes, { prefix: "/api/water" });
   await app.register(taskRoutes, { prefix: "/api/tasks" });
+  await app.register(goalRoutes, { prefix: "/api/goals" });
+  await app.register(habitRoutes, { prefix: "/api/habits" });
+  await app.register(workoutRoutes, { prefix: "/api/workouts" });
+  await app.register(trainingPlanRoutes, { prefix: "/api/training-plan" });
+  await app.register(trendsRoutes, { prefix: "/api/trends" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(todayRoutes, { prefix: "/api/today" });
 

@@ -1,10 +1,28 @@
 import type { FastifyInstance } from "fastify";
 import type { TodaySummary } from "@apex/shared";
+import type { Goal } from "@apex/shared";
 import { prisma } from "../db";
+import { loadGoals } from "../lib/goals";
+import { loadHabits } from "../lib/habits";
 import { progress } from "../lib/nutrition";
 import { toTask } from "../lib/serializers";
-import { dayRange, dayString, localHour } from "../lib/time";
+import { dayRange, dayString, localHour, localWeekdayMon0 } from "../lib/time";
 import { ensureSettings } from "./settings";
+import { ensureTrainingPlan } from "./training-plan";
+
+/** Lower number = more urgent, used to pick the goal to surface on Today. */
+function goalUrgency(g: Goal): number {
+  switch (g.pace.status) {
+    case "overdue":
+      return 0;
+    case "behind":
+      return 1;
+    case "on_track":
+      return 2;
+    default:
+      return 3;
+  }
+}
 
 function greetingFor(hour: number): string {
   if (hour < 5) return "Late night";
@@ -55,30 +73,46 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
     const userId = request.userId;
     const { start, end } = dayRange();
 
-    const [settings, meals, waterLogs, openTasks, openTaskCount, latestWeight] =
-      await Promise.all([
-        ensureSettings(userId),
-        prisma.meal.findMany({
-          where: { userId, eatenAt: { gte: start, lt: end } },
-        }),
-        prisma.waterLog.findMany({
-          where: { userId, loggedAt: { gte: start, lt: end } },
-        }),
-        prisma.task.findMany({
-          where: { userId, done: false },
-          orderBy: [
-            { priority: "asc" },
-            { dueDate: { sort: "asc", nulls: "last" } },
-            { createdAt: "asc" },
-          ],
-          take: 3,
-        }),
-        prisma.task.count({ where: { userId, done: false } }),
-        prisma.bodyweightEntry.findFirst({
-          where: { userId },
-          orderBy: { measuredAt: "desc" },
-        }),
-      ]);
+    const [
+      settings,
+      meals,
+      waterLogs,
+      openTasks,
+      openTaskCount,
+      latestWeight,
+      goals,
+      habits,
+      plan,
+      todayWorkoutCount,
+    ] = await Promise.all([
+      ensureSettings(userId),
+      prisma.meal.findMany({
+        where: { userId, eatenAt: { gte: start, lt: end } },
+      }),
+      prisma.waterLog.findMany({
+        where: { userId, loggedAt: { gte: start, lt: end } },
+      }),
+      prisma.task.findMany({
+        where: { userId, done: false },
+        orderBy: [
+          { priority: "asc" },
+          { dueDate: { sort: "asc", nulls: "last" } },
+          { createdAt: "asc" },
+        ],
+        take: 3,
+      }),
+      prisma.task.count({ where: { userId, done: false } }),
+      prisma.bodyweightEntry.findFirst({
+        where: { userId },
+        orderBy: { measuredAt: "desc" },
+      }),
+      loadGoals(userId),
+      loadHabits(userId),
+      ensureTrainingPlan(userId),
+      prisma.workout.count({
+        where: { userId, performedAt: { gte: start, lt: end } },
+      }),
+    ]);
 
     const totals = meals.reduce(
       (acc, m) => {
@@ -99,6 +133,16 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
     const water = progress(waterMl, settings.waterTargetMl);
 
     const topPriorities = openTasks.map(toTask);
+
+    const activeGoals = goals.filter((g) => g.status === "active");
+    const focusGoal = [...activeGoals].sort(
+      (a, b) =>
+        goalUrgency(a) - goalUrgency(b) ||
+        a.pace.daysRemaining - b.pace.daysRemaining,
+    )[0];
+    const plannedLabel = plan.days[localWeekdayMon0()] ?? "Rest";
+    const plannedWorkout =
+      plannedLabel.trim().toLowerCase() === "rest" ? null : plannedLabel;
 
     return {
       date: dayString(),
@@ -121,6 +165,11 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       },
       latestBodyweightKg: latestWeight ? latestWeight.weightKg : null,
       openTaskCount,
+      todaysFocus: focusGoal ? focusGoal.pace.nextStep : null,
+      plannedWorkout,
+      plannedWorkoutDone: todayWorkoutCount > 0,
+      habits,
+      activeGoalCount: activeGoals.length,
     };
   });
 }

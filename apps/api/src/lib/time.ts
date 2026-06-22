@@ -28,6 +28,22 @@ export function localHour(date: Date = new Date()): number {
   return shifted.getUTCHours();
 }
 
+/** Local weekday with Monday = 0 … Sunday = 6 (matches the training split). */
+export function localWeekdayMon0(date: Date = new Date()): number {
+  const shifted = new Date(date.getTime() + TZ_OFFSET_MINUTES * 60_000);
+  return (shifted.getUTCDay() + 6) % 7;
+}
+
+/** The local day `n` days before `from` (n=0 → today). */
+export function dayBefore(n: number, from: Date = new Date()): Date {
+  return new Date(from.getTime() - n * 24 * 60 * 60_000);
+}
+
+/** Monday (local) of the week containing `date`, as a YYYY-MM-DD string. */
+export function weekStartString(date: Date = new Date()): string {
+  return dayString(dayBefore(localWeekdayMon0(date), date));
+}
+
 /** Parse a YYYY-MM-DD string into the local-day range, or today if absent. */
 export function rangeForDayString(day?: string): { start: Date; end: Date } {
   if (!day) return dayRange();

@@ -19,11 +19,15 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  settings    Settings?
-  meals       Meal[]
-  bodyweights BodyweightEntry[]
-  waterLogs   WaterLog[]
-  tasks       Task[]
+  settings     Settings?
+  meals        Meal[]
+  bodyweights  BodyweightEntry[]
+  waterLogs    WaterLog[]
+  tasks        Task[]
+  goals        Goal[]
+  habits       Habit[]
+  workouts     Workout[]
+  trainingPlan TrainingPlan?
 }
 
 /// Editable recomp targets and preferences. One row per user.
@@ -96,4 +100,100 @@ model Task {
   updatedAt DateTime  @updatedAt
 
   @@index([userId, done, dueDate])
+}
+
+model Goal {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  category     String    @default("personal")
+  status       String    @default("active") // active | done | archived
+  targetDate   DateTime
+  // Optional numeric tracking
+  metricUnit   String?
+  startValue   Float?
+  targetValue  Float?
+  currentValue Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  milestones GoalMilestone[]
+
+  @@index([userId, status])
+}
+
+model GoalMilestone {
+  id        String    @id @default(cuid())
+  goalId    String
+  goal      Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title     String
+  dueDate   DateTime?
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([goalId, done])
+}
+
+model Habit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  emoji     String?
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  logs HabitLog[]
+
+  @@index([userId, archived])
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  day       String // local YYYY-MM-DD
+  createdAt DateTime @default(now())
+
+  @@unique([habitId, day])
+}
+
+model TrainingPlan {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days      String[] // 7 entries, Monday-first
+  updatedAt DateTime @updatedAt
+}
+
+model Workout {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  notes       String?
+  source      String   @default("manual") // manual | hevy
+  performedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  sets WorkoutSet[]
+
+  @@index([userId, performedAt])
+}
+
+model WorkoutSet {
+  id        String   @id @default(cuid())
+  workoutId String
+  workout   Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise  String
+  order     Int      @default(0)
+  weightKg  Float?
+  reps      Int?
+  createdAt DateTime @default(now())
+
+  @@index([workoutId])
 }

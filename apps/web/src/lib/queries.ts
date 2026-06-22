@@ -7,9 +7,15 @@ import type {
   BodyweightEntry,
   ChangePasswordInput,
   CreateBodyweightInput,
+  CreateGoalInput,
+  CreateHabitInput,
   CreateMealInput,
+  CreateMilestoneInput,
   CreateTaskInput,
   CreateWaterInput,
+  CreateWorkoutInput,
+  Goal,
+  Habit,
   LoginInput,
   Meal,
   PublicUser,
@@ -17,8 +23,14 @@ import type {
   SettingsInput,
   Task,
   TodaySummary,
+  TrainingPlan,
+  TrainingPlanInput,
+  TrendsResponse,
+  UpdateGoalInput,
+  UpdateMilestoneInput,
   UpdateTaskInput,
   WaterLog,
+  Workout,
 } from "@apex/shared";
 import { api } from "./api";
 
@@ -35,6 +47,11 @@ export const keys = {
   bodyweight: ["bodyweight"] as const,
   tasks: ["tasks"] as const,
   settings: ["settings"] as const,
+  goals: ["goals"] as const,
+  habits: ["habits"] as const,
+  workouts: ["workouts"] as const,
+  trainingPlan: ["training-plan"] as const,
+  trends: ["trends"] as const,
 };
 
 /* ----------------------------- Auth ----------------------------- */
@@ -239,5 +256,157 @@ export function useUpdateSettings() {
       qc.setQueryData(keys.settings, settings);
       invalidateDaily();
     },
+  });
+}
+
+/* ----------------------------- Goals ----------------------------- */
+
+export function useGoals() {
+  return useQuery({
+    queryKey: keys.goals,
+    queryFn: () => api.get<Goal[]>("/api/goals"),
+  });
+}
+
+function useGoalMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.goals });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+export const useAddGoal = () =>
+  useGoalMutation((input: CreateGoalInput) => api.post<Goal>("/api/goals", input));
+
+export const useUpdateGoal = () =>
+  useGoalMutation(({ id, input }: { id: string; input: UpdateGoalInput }) =>
+    api.patch<Goal>(`/api/goals/${id}`, input),
+  );
+
+export const useDeleteGoal = () =>
+  useGoalMutation((id: string) => api.del<{ ok: true }>(`/api/goals/${id}`));
+
+export const useAddMilestone = () =>
+  useGoalMutation(
+    ({ goalId, input }: { goalId: string; input: CreateMilestoneInput }) =>
+      api.post<Goal>(`/api/goals/${goalId}/milestones`, input),
+  );
+
+export const useUpdateMilestone = () =>
+  useGoalMutation(({ id, input }: { id: string; input: UpdateMilestoneInput }) =>
+    api.patch<Goal>(`/api/goals/milestones/${id}`, input),
+  );
+
+export const useDeleteMilestone = () =>
+  useGoalMutation((id: string) =>
+    api.del<{ ok: true }>(`/api/goals/milestones/${id}`),
+  );
+
+/* ----------------------------- Habits ----------------------------- */
+
+export function useHabits() {
+  return useQuery({
+    queryKey: keys.habits,
+    queryFn: () => api.get<Habit[]>("/api/habits"),
+  });
+}
+
+export function useAddHabit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateHabitInput) =>
+      api.post<Habit[]>("/api/habits", input),
+    onSuccess: (list) => {
+      qc.setQueryData(keys.habits, list);
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+export function useToggleHabit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<Habit[]>(`/api/habits/${id}/toggle`),
+    onSuccess: (list) => {
+      qc.setQueryData(keys.habits, list);
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+export function useDeleteHabit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<{ ok: true }>(`/api/habits/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.habits });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+/* ---------------------------- Workouts ---------------------------- */
+
+export function useWorkouts() {
+  return useQuery({
+    queryKey: keys.workouts,
+    queryFn: () => api.get<Workout[]>("/api/workouts"),
+  });
+}
+
+function useWorkoutMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.workouts });
+      qc.invalidateQueries({ queryKey: keys.trends });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+export const useAddWorkout = () =>
+  useWorkoutMutation((input: CreateWorkoutInput) =>
+    api.post<Workout>("/api/workouts", input),
+  );
+
+export const useDeleteWorkout = () =>
+  useWorkoutMutation((id: string) =>
+    api.del<{ ok: true }>(`/api/workouts/${id}`),
+  );
+
+/* ------------------------- Training plan -------------------------- */
+
+export function useTrainingPlan() {
+  return useQuery({
+    queryKey: keys.trainingPlan,
+    queryFn: () => api.get<TrainingPlan>("/api/training-plan"),
+  });
+}
+
+export function useUpdateTrainingPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TrainingPlanInput) =>
+      api.put<TrainingPlan>("/api/training-plan", input),
+    onSuccess: (plan) => {
+      qc.setQueryData(keys.trainingPlan, plan);
+      qc.invalidateQueries({ queryKey: keys.trends });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+/* ----------------------------- Trends ----------------------------- */
+
+export function useTrends() {
+  return useQuery({
+    queryKey: keys.trends,
+    queryFn: () => api.get<TrendsResponse>("/api/trends"),
   });
 }

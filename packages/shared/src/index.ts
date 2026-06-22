@@ -208,4 +208,209 @@ export interface TodaySummary {
   };
   latestBodyweightKg: number | null;
   openTaskCount: number;
+  /** Next step from the most urgent active goal (Phase 2). */
+  todaysFocus: string | null;
+  /** Today's planned split label, or null on a rest/unplanned day (Phase 2). */
+  plannedWorkout: string | null;
+  plannedWorkoutDone: boolean;
+  /** Habits for the quick-tick row on Today (Phase 2). */
+  habits: Habit[];
+  activeGoalCount: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Goals (with deadlines → daily pace)                                        */
+/* -------------------------------------------------------------------------- */
+
+export const goalCategorySchema = z.enum([
+  "business",
+  "fitness",
+  "money",
+  "study",
+  "personal",
+]);
+export type GoalCategory = z.infer<typeof goalCategorySchema>;
+
+export const goalStatusSchema = z.enum(["active", "done", "archived"]);
+export type GoalStatus = z.infer<typeof goalStatusSchema>;
+
+export const createGoalSchema = z.object({
+  title: z.string().min(1).max(300),
+  description: z.string().max(2000).nullable().optional(),
+  category: goalCategorySchema.default("personal"),
+  targetDate: z.string().datetime(),
+  // Optional numeric tracking (e.g. revenue/weight goals).
+  metricUnit: z.string().max(20).nullable().optional(),
+  startValue: z.number().nullable().optional(),
+  targetValue: z.number().nullable().optional(),
+  currentValue: z.number().nullable().optional(),
+});
+export type CreateGoalInput = z.infer<typeof createGoalSchema>;
+
+export const updateGoalSchema = createGoalSchema
+  .partial()
+  .extend({ status: goalStatusSchema.optional() });
+export type UpdateGoalInput = z.infer<typeof updateGoalSchema>;
+
+export const createMilestoneSchema = z.object({
+  title: z.string().min(1).max(300),
+  dueDate: z.string().datetime().nullable().optional(),
+});
+export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>;
+
+export const updateMilestoneSchema = z
+  .object({
+    title: z.string().min(1).max(300),
+    dueDate: z.string().datetime().nullable(),
+    done: z.boolean(),
+    order: z.number().int(),
+  })
+  .partial();
+export type UpdateMilestoneInput = z.infer<typeof updateMilestoneSchema>;
+
+export interface GoalMilestone {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  done: boolean;
+  doneAt: string | null;
+  order: number;
+}
+
+export type GoalPaceStatus =
+  | "ahead"
+  | "on_track"
+  | "behind"
+  | "overdue"
+  | "done";
+
+export interface GoalPace {
+  daysRemaining: number;
+  progressPct: number;
+  expectedPct: number;
+  status: GoalPaceStatus;
+  nextStep: string | null;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  description: string | null;
+  category: GoalCategory;
+  status: GoalStatus;
+  targetDate: string;
+  createdAt: string;
+  metricUnit: string | null;
+  startValue: number | null;
+  targetValue: number | null;
+  currentValue: number | null;
+  milestones: GoalMilestone[];
+  pace: GoalPace;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Habits / streaks                                                           */
+/* -------------------------------------------------------------------------- */
+
+export const createHabitSchema = z.object({
+  name: z.string().min(1).max(100),
+  emoji: z.string().max(8).nullable().optional(),
+});
+export type CreateHabitInput = z.infer<typeof createHabitSchema>;
+
+export interface Habit {
+  id: string;
+  name: string;
+  emoji: string | null;
+  doneToday: boolean;
+  streak: number;
+  /** Oldest → newest completion flags for the last 7 days. */
+  last7: boolean[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Training plan + manual workouts                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Monday-first weekly split. Phase 3 auto-imports the work itself via Hevy. */
+export const DEFAULT_SPLIT = [
+  "Push",
+  "Pull",
+  "Legs",
+  "Rest",
+  "Upper",
+  "Lower",
+  "Rest",
+];
+
+export const trainingPlanSchema = z.object({
+  days: z.array(z.string().max(20)).length(7),
+});
+export type TrainingPlanInput = z.infer<typeof trainingPlanSchema>;
+
+export interface TrainingPlan {
+  days: string[];
+  updatedAt: string;
+}
+
+export const workoutSetSchema = z.object({
+  exercise: z.string().min(1).max(120),
+  weightKg: z.number().min(0).max(1000).nullable().optional(),
+  reps: z.number().int().min(0).max(1000).nullable().optional(),
+});
+export type WorkoutSetInput = z.infer<typeof workoutSetSchema>;
+
+export const createWorkoutSchema = z.object({
+  title: z.string().min(1).max(120),
+  performedAt: z.string().datetime().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  sets: z.array(workoutSetSchema).max(100).default([]),
+});
+export type CreateWorkoutInput = z.infer<typeof createWorkoutSchema>;
+
+export interface WorkoutSet {
+  id: string;
+  exercise: string;
+  order: number;
+  weightKg: number | null;
+  reps: number | null;
+}
+
+export interface Workout {
+  id: string;
+  title: string;
+  performedAt: string;
+  notes: string | null;
+  source: string;
+  sets: WorkoutSet[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Trends                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export interface BodyweightPoint {
+  date: string;
+  kg: number;
+}
+
+export interface AdherencePoint {
+  date: string;
+  calories: number;
+  calorieTarget: number;
+  protein: number;
+  proteinTarget: number;
+}
+
+export interface TrainingWeekPoint {
+  weekStart: string;
+  sessions: number;
+  volumeKg: number;
+}
+
+export interface TrendsResponse {
+  bodyweight: BodyweightPoint[];
+  adherence: AdherencePoint[];
+  training: TrainingWeekPoint[];
+  trainingStreak: number;
 }

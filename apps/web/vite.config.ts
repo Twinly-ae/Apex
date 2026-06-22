@@ -10,6 +10,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Auto-update so you always run the latest deploy (important while we're
+      // still wiring things up and shipping phases). The brief reload only
+      // happens when a new build is published.
       registerType: "autoUpdate",
       injectRegister: "auto",
       includeAssets: ["favicon.svg", "icons/apple-touch-icon.png"],

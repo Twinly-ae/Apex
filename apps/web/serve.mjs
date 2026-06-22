@@ -32,6 +32,17 @@ function sendFile(res, status, filePath) {
 
 const server = createServer((req, res) => {
   const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+
+  // The API is a separate service. If an /api request lands here, VITE_API_URL
+  // is misconfigured — fail loudly with JSON instead of serving the HTML shell.
+  if (urlPath === "/api" || urlPath.startsWith("/api/")) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(
+      '{"error":"This is the web service. Point VITE_API_URL at the API origin."}',
+    );
+    return;
+  }
+
   // Block path traversal, then resolve within dist.
   const safePath = normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, "");
   const filePath = join(distDir, safePath);

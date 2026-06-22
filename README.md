@@ -89,10 +89,11 @@ Later phases add `ANTHROPIC_API_KEY`, `HEVY_API_KEY`, `NOTION_TOKEN`,
 1. New Railway project → add the **Postgres** plugin (sets `DATABASE_URL`).
 2. Add a service from this GitHub repo for the API:
    - **Build:** `npm install && npm run build --workspace=@apex/api`
-   - **Start:** `npm run db:migrate -w @apex/api && npm run start -w @apex/api`
-   - **Variables:** `SESSION_SECRET`, `APP_ORIGIN` (your web URL), `NODE_ENV=production`,
+   - **Start:** `npm run start -w @apex/api` (runs `prisma migrate deploy` then boots)
+   - **Variables:** `DATABASE_URL` (reference `${{Postgres.DATABASE_URL}}`),
+     `SESSION_SECRET`, `APP_ORIGIN` (your web URL), `NODE_ENV=production`,
      `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD` (then seed once).
-3. Seed the user once from the Railway shell: `npm run db:seed -w @apex/api`.
+3. Seed the user once from the Railway shell: `npm run db:seed:prod -w @apex/api`.
 
 **Web (PWA) → Cloudflare Pages**
 

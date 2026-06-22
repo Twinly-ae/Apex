@@ -9,15 +9,20 @@ import Fastify, {
 } from "fastify";
 import { registerAuth } from "./auth";
 import { env, isProd } from "./env";
+import billRoutes from "./routes/bills";
 import bodyweightRoutes from "./routes/bodyweight";
 import goalRoutes from "./routes/goals";
 import habitRoutes from "./routes/habits";
+import ingestRoutes from "./routes/ingest";
 import mealRoutes from "./routes/meals";
+import metricsRoutes from "./routes/metrics";
+import moneyRoutes from "./routes/money";
 import settingsRoutes from "./routes/settings";
 import taskRoutes from "./routes/tasks";
 import todayRoutes from "./routes/today";
 import trainingPlanRoutes from "./routes/training-plan";
 import trendsRoutes from "./routes/trends";
+import twinlyRoutes from "./routes/twinly";
 import waterRoutes from "./routes/water";
 import workoutRoutes from "./routes/workouts";
 
@@ -78,8 +83,15 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(workoutRoutes, { prefix: "/api/workouts" });
   await app.register(trainingPlanRoutes, { prefix: "/api/training-plan" });
   await app.register(trendsRoutes, { prefix: "/api/trends" });
+  await app.register(moneyRoutes, { prefix: "/api/money" });
+  await app.register(billRoutes, { prefix: "/api/bills" });
+  await app.register(metricsRoutes, { prefix: "/api/metrics" });
+  await app.register(twinlyRoutes, { prefix: "/api/twinly" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(todayRoutes, { prefix: "/api/today" });
+
+  // Apple Health ingest — token-protected, NOT behind the session.
+  await app.register(ingestRoutes, { prefix: "/api/ingest" });
 
   // ---- Uniform error shape; never leak internals in production -------------
   app.setErrorHandler((err: FastifyError, request, reply) => {

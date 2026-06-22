@@ -410,3 +410,137 @@ export function useTrends() {
     queryFn: () => api.get<TrendsResponse>("/api/trends"),
   });
 }
+
+/* ===================== Phase 3: integrations ===================== */
+import type {
+  Account,
+  Bill,
+  CreateAccountInput,
+  CreateBillInput,
+  CreatePositionInput,
+  HealthSummary,
+  NetWorthResponse,
+  SyncResult,
+  TwinlySummary,
+  UpdateAccountInput,
+  UpdateBillInput,
+  UpdatePositionInput,
+} from "@apex/shared";
+
+export const moneyKeys = {
+  money: ["money"] as const,
+  bills: ["bills"] as const,
+  metrics: ["metrics-summary"] as const,
+  twinly: ["twinly-summary"] as const,
+};
+
+/* ----- Money / net worth ----- */
+export function useMoney() {
+  return useQuery({
+    queryKey: moneyKeys.money,
+    queryFn: () => api.get<NetWorthResponse>("/api/money"),
+  });
+}
+
+function useMoneyMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: moneyKeys.money });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+}
+
+export const useAddAccount = () =>
+  useMoneyMutation((input: CreateAccountInput) =>
+    api.post<Account[]>("/api/money/accounts", input),
+  );
+export const useUpdateAccount = () =>
+  useMoneyMutation(({ id, input }: { id: string; input: UpdateAccountInput }) =>
+    api.patch<Account[]>(`/api/money/accounts/${id}`, input),
+  );
+export const useDeleteAccount = () =>
+  useMoneyMutation((id: string) =>
+    api.del<Account[]>(`/api/money/accounts/${id}`),
+  );
+export const useAddPosition = () =>
+  useMoneyMutation(
+    ({ accountId, input }: { accountId: string; input: CreatePositionInput }) =>
+      api.post<Account[]>(`/api/money/accounts/${accountId}/positions`, input),
+  );
+export const useUpdatePosition = () =>
+  useMoneyMutation(({ id, input }: { id: string; input: UpdatePositionInput }) =>
+    api.patch<Account[]>(`/api/money/positions/${id}`, input),
+  );
+export const useDeletePosition = () =>
+  useMoneyMutation((id: string) =>
+    api.del<Account[]>(`/api/money/positions/${id}`),
+  );
+
+/* ----- Bills ----- */
+export function useBills() {
+  return useQuery({
+    queryKey: moneyKeys.bills,
+    queryFn: () => api.get<Bill[]>("/api/bills"),
+  });
+}
+export const useAddBill = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateBillInput) => api.post<Bill>("/api/bills", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: moneyKeys.bills }),
+  });
+};
+export const useUpdateBill = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateBillInput }) =>
+      api.patch<Bill>(`/api/bills/${id}`, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: moneyKeys.bills }),
+  });
+};
+export const useDeleteBill = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<{ ok: true }>(`/api/bills/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: moneyKeys.bills }),
+  });
+};
+
+/* ----- Apple Health summary ----- */
+export function useMetricsSummary() {
+  return useQuery({
+    queryKey: moneyKeys.metrics,
+    queryFn: () => api.get<HealthSummary>("/api/metrics/summary"),
+  });
+}
+
+/* ----- Twinly expenses ----- */
+export function useTwinlySummary() {
+  return useQuery({
+    queryKey: moneyKeys.twinly,
+    queryFn: () => api.get<TwinlySummary>("/api/twinly/summary"),
+  });
+}
+export const useSyncTwinly = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<SyncResult>("/api/twinly/sync"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: moneyKeys.twinly }),
+  });
+};
+
+/* ----- Hevy sync ----- */
+export const useSyncHevy = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<SyncResult>("/api/workouts/sync-hevy"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.workouts });
+      qc.invalidateQueries({ queryKey: keys.trends });
+      qc.invalidateQueries({ queryKey: keys.today });
+    },
+  });
+};

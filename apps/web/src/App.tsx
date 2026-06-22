@@ -8,9 +8,12 @@ import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
 import { Today } from "./pages/Today";
 
-// Charts (recharts) are heavy — load the Trends screen only when visited.
+// Charts (recharts) are heavy — load chart-using screens only when visited.
 const Trends = lazy(() =>
   import("./pages/Trends").then((m) => ({ default: m.Trends })),
+);
+const Money = lazy(() =>
+  import("./pages/Money").then((m) => ({ default: m.Money })),
 );
 
 function Splash() {
@@ -33,6 +36,14 @@ export default function App() {
         <Route path="/" element={<Today />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/goals" element={<Goals />} />
+        <Route
+          path="/money"
+          element={
+            <Suspense fallback={<Splash />}>
+              <Money />
+            </Suspense>
+          }
+        />
         <Route
           path="/trends"
           element={

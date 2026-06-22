@@ -173,10 +173,29 @@ export function Today() {
           value={kg(data.latestBodyweightKg)}
           sub="latest"
         />
-        <StatCard label="Calories out" value="—" sub="Apple Health" soon />
-        <StatCard label="Net worth" value="—" sub="Phase 3" soon />
+        <StatCard
+          label="Calories out"
+          value={data.caloriesOut != null ? data.caloriesOut : "—"}
+          sub="active energy"
+          soon={data.caloriesOut == null}
+        />
+        <StatCard
+          label="Steps"
+          value={data.steps != null ? data.steps.toLocaleString() : "—"}
+          sub="today"
+          soon={data.steps == null}
+        />
+        <StatCard
+          label="Net worth"
+          value={
+            data.netWorthAed != null
+              ? `AED ${Math.round(data.netWorthAed).toLocaleString()}`
+              : "—"
+          }
+          sub="total"
+          soon={data.netWorthAed == null}
+        />
         <StatCard label="Twinly today" value="—" sub="Phase 4" soon />
-        <StatCard label="Training streak" value="—" sub="see Trends" soon />
       </section>
 
       <WorkoutSheet

@@ -24,10 +24,15 @@ model User {
   bodyweights  BodyweightEntry[]
   waterLogs    WaterLog[]
   tasks        Task[]
-  goals        Goal[]
-  habits       Habit[]
-  workouts     Workout[]
-  trainingPlan TrainingPlan?
+  goals             Goal[]
+  habits            Habit[]
+  workouts          Workout[]
+  trainingPlan      TrainingPlan?
+  accounts          Account[]
+  netWorthSnapshots NetWorthSnapshot[]
+  bills             Bill[]
+  healthMetrics     HealthMetric[]
+  twinlyExpenses    TwinlyExpense[]
 }
 
 /// Editable recomp targets and preferences. One row per user.
@@ -177,11 +182,13 @@ model Workout {
   title       String
   notes       String?
   source      String   @default("manual") // manual | hevy
+  externalId  String? // Hevy workout id, for dedupe on re-sync
   performedAt DateTime @default(now())
   createdAt   DateTime @default(now())
 
   sets WorkoutSet[]
 
+  @@unique([userId, externalId])
   @@index([userId, performedAt])
 }
 
@@ -196,4 +203,96 @@ model WorkoutSet {
   createdAt DateTime @default(now())
 
   @@index([workoutId])
+}
+
+// ---- Money -----------------------------------------------------------------
+
+model Account {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  type       String     @default("cash") // cash | investment | other
+  provider   String? // xcube | stashaway | manual
+  balanceAed Float      @default(0)
+  sortOrder  Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  positions  Position[]
+
+  @@index([userId])
+}
+
+/// Individual holdings inside an investment account (e.g. Aldar, Emaar).
+model Position {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String
+  valueAed  Float    @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId])
+}
+
+model NetWorthSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       String // local YYYY-MM-DD
+  totalAed  Float
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+}
+
+model Bill {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  amountAed   Float
+  cadence     String   @default("monthly") // weekly | monthly | yearly | once
+  nextDueDate DateTime
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, nextDueDate])
+}
+
+// ---- Apple Health ingest ----------------------------------------------------
+
+model HealthMetric {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // steps | active_energy | resting_hr | heart_rate | sleep_hours | bodyweight
+  value     Float
+  unit      String?
+  day       String // local YYYY-MM-DD for daily rollups
+  startAt   DateTime
+  endAt     DateTime?
+  source    String    @default("apple_health")
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, type, startAt])
+  @@index([userId, type, day])
+}
+
+// ---- Twinly (Notion expenses cache) ----------------------------------------
+
+model TwinlyExpense {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notionId  String    @unique
+  title     String?
+  category  String?
+  amountAed Float
+  date      DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, date])
 }

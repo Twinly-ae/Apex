@@ -216,6 +216,10 @@ export interface TodaySummary {
   /** Habits for the quick-tick row on Today (Phase 2). */
   habits: Habit[];
   activeGoalCount: number;
+  /** From Apple Health ingest / accounts (Phase 3); null until data exists. */
+  caloriesOut: number | null;
+  steps: number | null;
+  netWorthAed: number | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -413,4 +417,139 @@ export interface TrendsResponse {
   adherence: AdherencePoint[];
   training: TrainingWeekPoint[];
   trainingStreak: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Money — accounts, positions, net worth, bills (Phase 3)                    */
+/* -------------------------------------------------------------------------- */
+
+export const accountTypeSchema = z.enum(["cash", "investment", "other"]);
+export type AccountType = z.infer<typeof accountTypeSchema>;
+
+export const createAccountSchema = z.object({
+  name: z.string().min(1).max(100),
+  type: accountTypeSchema.default("cash"),
+  provider: z.string().max(40).nullable().optional(),
+  balanceAed: z.number().min(0).max(1e12).default(0),
+});
+export type CreateAccountInput = z.infer<typeof createAccountSchema>;
+
+export const updateAccountSchema = createAccountSchema
+  .partial()
+  .extend({ sortOrder: z.number().int().optional() });
+export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
+
+export const createPositionSchema = z.object({
+  name: z.string().min(1).max(100),
+  valueAed: z.number().min(0).max(1e12),
+});
+export type CreatePositionInput = z.infer<typeof createPositionSchema>;
+
+export const updatePositionSchema = createPositionSchema.partial();
+export type UpdatePositionInput = z.infer<typeof updatePositionSchema>;
+
+export interface Position {
+  id: string;
+  name: string;
+  valueAed: number;
+  updatedAt: string;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  provider: string | null;
+  balanceAed: number;
+  /** Effective value: sum of positions when present, else balanceAed. */
+  valueAed: number;
+  sortOrder: number;
+  updatedAt: string;
+  positions: Position[];
+}
+
+export interface NetWorthPoint {
+  day: string;
+  totalAed: number;
+}
+
+export interface NetWorthResponse {
+  totalAed: number;
+  accounts: Account[];
+  history: NetWorthPoint[];
+}
+
+export const billCadenceSchema = z.enum(["weekly", "monthly", "yearly", "once"]);
+export type BillCadence = z.infer<typeof billCadenceSchema>;
+
+export const createBillSchema = z.object({
+  name: z.string().min(1).max(100),
+  amountAed: z.number().min(0).max(1e9),
+  cadence: billCadenceSchema.default("monthly"),
+  nextDueDate: z.string().datetime(),
+  category: z.string().max(60).nullable().optional(),
+});
+export type CreateBillInput = z.infer<typeof createBillSchema>;
+
+export const updateBillSchema = createBillSchema.partial();
+export type UpdateBillInput = z.infer<typeof updateBillSchema>;
+
+export interface Bill {
+  id: string;
+  name: string;
+  amountAed: number;
+  cadence: BillCadence;
+  nextDueDate: string;
+  category: string | null;
+  daysUntilDue: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Apple Health (ingested via a bridge app)                                   */
+/* -------------------------------------------------------------------------- */
+
+export interface HealthSummary {
+  day: string;
+  steps: number | null;
+  activeEnergyKcal: number | null;
+  restingHr: number | null;
+  sleepHours: number | null;
+  updatedAt: string | null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Twinly expenses (cached from Notion)                                       */
+/* -------------------------------------------------------------------------- */
+
+export interface TwinlyExpense {
+  id: string;
+  title: string | null;
+  category: string | null;
+  amountAed: number;
+  date: string | null;
+}
+
+export interface TwinlyCategoryTotal {
+  category: string;
+  amountAed: number;
+}
+
+export interface TwinlySummary {
+  connected: boolean;
+  lastSyncedAt: string | null;
+  monthToDateAed: number;
+  lastMonthAed: number;
+  byCategory: TwinlyCategoryTotal[];
+  recent: TwinlyExpense[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Integration sync result                                                    */
+/* -------------------------------------------------------------------------- */
+
+export interface SyncResult {
+  connected: boolean;
+  imported: number;
+  total: number;
+  message?: string;
 }

@@ -1,6 +1,7 @@
 import type {
   AdherencePoint,
   BodyweightPoint,
+  NetWorthPoint,
   TrainingWeekPoint,
 } from "@apex/shared";
 import {
@@ -118,6 +119,42 @@ export function TrainingChart({ data }: { data: TrainingWeekPoint[] }) {
         <Tooltip {...TOOLTIP} />
         <Bar dataKey="volume" fill="#4f8cff" radius={[4, 4, 0, 0]} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function NetWorthChart({ data }: { data: NetWorthPoint[] }) {
+  if (data.length < 2) {
+    return <Empty msg="Update your balances over a few days to see the trend." />;
+  }
+  const points = data.map((d) => ({ label: d.day.slice(5), aed: d.totalAed }));
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <LineChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -2 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={28}
+        />
+        <YAxis
+          tick={AXIS}
+          tickLine={false}
+          axisLine={false}
+          width={48}
+          tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+        />
+        <Tooltip {...TOOLTIP} />
+        <Line
+          type="monotone"
+          dataKey="aed"
+          stroke="#36d399"
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

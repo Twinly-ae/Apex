@@ -18,6 +18,15 @@ const schema = z.object({
   // Seed-only; not required to boot the server.
   ADMIN_EMAIL: z.string().email().optional(),
   ADMIN_INITIAL_PASSWORD: z.string().min(1).optional(),
+
+  // Phase 3 integrations — all optional; each feature is disabled until set.
+  HEVY_API_KEY: z.string().optional(),
+  NOTION_TOKEN: z.string().optional(),
+  NOTION_EXPENSES_DB_ID: z
+    .string()
+    .optional()
+    .default("5de30779-8408-455c-8c4d-525ed00bc4a1"),
+  HEALTH_INGEST_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

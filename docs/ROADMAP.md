@@ -8,8 +8,8 @@ Phased build plan. Each phase ends with a usable app; nothing is a big-bang.
 | --- | --- | --- |
 | 1 | PWA shell, secure login, Today, fast logging | ✅ |
 | 2 | Goals-with-deadlines engine, habits, fitness trends | ✅ |
-| 3 | Integrations: Hevy, Apple Health, Notion, money | 🚧 |
-| 4 | AI: briefing, time-blocking, macro tracker, statements, chat | ⏳ |
+| 3 | Integrations: Hevy, Apple Health, Notion, money | ✅ |
+| 4 | AI: briefing, time-blocking, macro tracker, statements, chat | 🚧 |
 | 5 | Push notifications, data export, deploy | ⏳ |
 
 ---
@@ -55,7 +55,7 @@ Turn ambitions into "what do I do *today*," and visualise the recomp.
   `Workout`, `WorkoutSet`.
 - **Needs from you:** nothing — all runtime data entered in-app.
 
-## Phase 3 — Integrations ⏳
+## Phase 3 — Integrations ✅
 
 Stop typing what a machine can fetch. Each integration is a swappable adapter.
 

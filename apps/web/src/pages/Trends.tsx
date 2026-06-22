@@ -9,7 +9,13 @@ import { StatCard } from "../components/StatCard";
 import { TrainingPlanEditor } from "../components/TrainingPlanEditor";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { kg } from "../lib/format";
-import { useDeleteWorkout, useTrends, useWorkouts } from "../lib/queries";
+import {
+  useDeleteWorkout,
+  useMetricsSummary,
+  useSyncHevy,
+  useTrends,
+  useWorkouts,
+} from "../lib/queries";
 
 function ChartCard({
   title,
@@ -35,7 +41,9 @@ function workoutVolume(w: Workout): number {
 export function Trends() {
   const { data: trends, isLoading } = useTrends();
   const { data: workouts } = useWorkouts();
+  const { data: metrics } = useMetricsSummary();
   const delWorkout = useDeleteWorkout();
+  const syncHevy = useSyncHevy();
   const [logOpen, setLogOpen] = useState(false);
 
   const latestBw = trends?.bodyweight.at(-1)?.kg ?? null;
@@ -73,6 +81,37 @@ export function Trends() {
         />
       </div>
 
+      <ChartCard title="Apple Health · today">
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Steps"
+            value={metrics?.steps != null ? metrics.steps.toLocaleString() : "—"}
+          />
+          <StatCard
+            label="Active energy"
+            value={
+              metrics?.activeEnergyKcal != null
+                ? `${metrics.activeEnergyKcal} kcal`
+                : "—"
+            }
+          />
+          <StatCard
+            label="Resting HR"
+            value={metrics?.restingHr != null ? `${metrics.restingHr} bpm` : "—"}
+          />
+          <StatCard
+            label="Sleep"
+            value={metrics?.sleepHours != null ? `${metrics.sleepHours} h` : "—"}
+          />
+        </div>
+        {!metrics?.updatedAt && (
+          <p className="mt-3 text-xs text-muted">
+            Connect Apple Health: point Health Auto Export at{" "}
+            <code className="text-text">/api/ingest/health</code> with your token.
+          </p>
+        )}
+      </ChartCard>
+
       <ChartCard title="Bodyweight">
         <BodyweightChart data={trends.bodyweight} />
       </ChartCard>
@@ -94,13 +133,29 @@ export function Trends() {
           <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
             Recent workouts
           </h2>
-          <button
-            onClick={() => setLogOpen(true)}
-            className="rounded-xl bg-accent px-3 py-1.5 text-sm font-semibold text-white active:opacity-80"
-          >
-            + Log
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => syncHevy.mutate()}
+              disabled={syncHevy.isPending}
+              className="rounded-xl bg-surface-2 px-3 py-1.5 text-sm text-text active:opacity-80"
+            >
+              {syncHevy.isPending ? "Syncing…" : "Sync Hevy"}
+            </button>
+            <button
+              onClick={() => setLogOpen(true)}
+              className="rounded-xl bg-accent px-3 py-1.5 text-sm font-semibold text-white active:opacity-80"
+            >
+              + Log
+            </button>
+          </div>
         </div>
+        {syncHevy.data && (
+          <p className="mb-2 text-xs text-muted">
+            {syncHevy.data.connected
+              ? `Imported ${syncHevy.data.imported} new workouts.`
+              : syncHevy.data.message}
+          </p>
+        )}
         {(workouts ?? []).length === 0 ? (
           <p className="py-3 text-sm text-muted">No workouts logged yet.</p>
         ) : (

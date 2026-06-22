@@ -4,6 +4,8 @@ import type { Goal } from "@apex/shared";
 import { prisma } from "../db";
 import { loadGoals } from "../lib/goals";
 import { loadHabits } from "../lib/habits";
+import { healthSummary } from "../lib/health";
+import { loadAccounts, netWorthTotal } from "../lib/money";
 import { progress } from "../lib/nutrition";
 import { toTask } from "../lib/serializers";
 import { dayRange, dayString, localHour, localWeekdayMon0 } from "../lib/time";
@@ -84,6 +86,8 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       habits,
       plan,
       todayWorkoutCount,
+      health,
+      accounts,
     ] = await Promise.all([
       ensureSettings(userId),
       prisma.meal.findMany({
@@ -112,6 +116,8 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       prisma.workout.count({
         where: { userId, performedAt: { gte: start, lt: end } },
       }),
+      healthSummary(userId),
+      loadAccounts(userId),
     ]);
 
     const totals = meals.reduce(
@@ -170,6 +176,9 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       plannedWorkoutDone: todayWorkoutCount > 0,
       habits,
       activeGoalCount: activeGoals.length,
+      caloriesOut: health.activeEnergyKcal,
+      steps: health.steps,
+      netWorthAed: accounts.length ? netWorthTotal(accounts) : null,
     };
   });
 }

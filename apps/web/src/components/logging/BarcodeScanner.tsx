@@ -31,9 +31,33 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
     (async () => {
       try {
         const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        const reader = new BrowserMultiFormatReader();
+        const { BarcodeFormat, DecodeHintType } = await import("@zxing/library");
+
+        // Narrow to the formats food products actually use + try harder; the
+        // all-format default rarely locks onto a 1D barcode from a video frame.
+        const hints = new Map<number, unknown>();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.ITF,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+
+        const reader = new BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 100,
+        });
         controls = await reader.decodeFromConstraints(
-          { video: { facingMode: "environment" } },
+          {
+            video: {
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
           videoRef.current as HTMLVideoElement,
           (result, _err, ctrl) => {
             if (!result || stopped) return;
@@ -111,7 +135,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       {/* Top bar */}
       <div className="safe-top absolute inset-x-0 top-0 flex items-center justify-between p-4">
         <span className="rounded-full bg-black/40 px-3 py-1 text-sm font-medium text-white">
-          Point at a barcode
+          Center the barcode in the box
         </span>
         <button
           onClick={onClose}

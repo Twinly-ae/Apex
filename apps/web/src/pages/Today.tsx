@@ -6,6 +6,7 @@ import { HabitsRow } from "../components/HabitsRow";
 import { MacroBar } from "../components/MacroBar";
 import { QuickLogRow } from "../components/QuickLogRow";
 import { StatCard } from "../components/StatCard";
+import { WeeklyReview } from "../components/money/WeeklyReview";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { formatDate, kg, liters, round } from "../lib/format";
 import {
@@ -389,6 +390,9 @@ export function Today() {
           soon={data.twinlyRevenueToday == null}
         />
       </section>
+
+      {/* AI weekly review (moved here from Money) */}
+      <WeeklyReview />
 
       <WorkoutSheet
         open={workoutOpen}

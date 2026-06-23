@@ -25,6 +25,7 @@ import type {
   Task,
   TodaySummary,
   TrainingPlan,
+  UpdateTaskStepInput,
   TrainingPlanInput,
   TrendsResponse,
   UpdateGoalInput,
@@ -246,6 +247,26 @@ export function useDeleteTask() {
     },
   });
 }
+
+/* ----- Task steps (sequential sub-steps) ----- */
+function useTaskStepMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.tasks }),
+  });
+}
+export const useAddTaskStep = () =>
+  useTaskStepMutation(({ taskId, title }: { taskId: string; title: string }) =>
+    api.post<Task>(`/api/tasks/${taskId}/steps`, { title }),
+  );
+export const useUpdateTaskStep = () =>
+  useTaskStepMutation(
+    ({ id, input }: { id: string; input: UpdateTaskStepInput }) =>
+      api.patch<Task>(`/api/tasks/steps/${id}`, input),
+  );
+export const useDeleteTaskStep = () =>
+  useTaskStepMutation((id: string) => api.del<Task>(`/api/tasks/steps/${id}`));
 
 /* ---------------------------- Settings ---------------------------- */
 

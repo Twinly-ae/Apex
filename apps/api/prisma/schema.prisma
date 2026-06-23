@@ -104,19 +104,36 @@ model WaterLog {
 }
 
 model Task {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  notes      String?
+  dueDate    DateTime?
+  priority   Int        @default(2) // 1 high, 2 medium, 3 low
+  color      String? // violet | blue | emerald | amber | rose | slate
+  estMinutes Int? // estimated duration
+  done       Boolean    @default(false)
+  doneAt     DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  steps      TaskStep[]
+
+  @@index([userId, done, dueDate])
+}
+
+/// Ordered sub-steps of a task; the UI unlocks them one at a time.
+model TaskStep {
   id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   title     String
-  notes     String?
-  dueDate   DateTime?
-  priority  Int       @default(2) // 1 high, 2 medium, 3 low
+  order     Int       @default(0)
   done      Boolean   @default(false)
   doneAt    DateTime?
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
 
-  @@index([userId, done, dueDate])
+  @@index([taskId])
 }
 
 model Goal {

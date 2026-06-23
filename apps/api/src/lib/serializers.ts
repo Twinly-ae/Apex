@@ -2,6 +2,7 @@ import type {
   BodyweightEntry as DbBodyweight,
   Meal as DbMeal,
   Task as DbTask,
+  TaskStep as DbTaskStep,
   WaterLog as DbWater,
 } from "@prisma/client";
 import type {
@@ -9,6 +10,7 @@ import type {
   Meal,
   MealSource,
   Task,
+  TaskColor,
   TaskPriority,
   WaterLog,
 } from "@apex/shared";
@@ -43,15 +45,26 @@ export function toWater(w: DbWater): WaterLog {
   };
 }
 
-export function toTask(t: DbTask): Task {
+export function toTask(t: DbTask & { steps?: DbTaskStep[] }): Task {
   return {
     id: t.id,
     title: t.title,
     notes: t.notes,
     dueDate: t.dueDate ? t.dueDate.toISOString() : null,
     priority: t.priority as TaskPriority,
+    color: (t.color as TaskColor | null) ?? null,
+    estMinutes: t.estMinutes,
     done: t.done,
     doneAt: t.doneAt ? t.doneAt.toISOString() : null,
     createdAt: t.createdAt.toISOString(),
+    steps: [...(t.steps ?? [])]
+      .sort((a, b) => a.order - b.order)
+      .map((s) => ({
+        id: s.id,
+        title: s.title,
+        order: s.order,
+        done: s.done,
+        doneAt: s.doneAt ? s.doneAt.toISOString() : null,
+      })),
   };
 }

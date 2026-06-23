@@ -155,11 +155,24 @@ export const taskPrioritySchema = z.union([
 ]);
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
 
+export const TASK_COLORS = [
+  "violet",
+  "blue",
+  "emerald",
+  "amber",
+  "rose",
+  "slate",
+] as const;
+export const taskColorSchema = z.enum(TASK_COLORS).nullable();
+export type TaskColor = (typeof TASK_COLORS)[number];
+
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(2000).nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   priority: taskPrioritySchema.default(2),
+  color: taskColorSchema.optional(),
+  estMinutes: z.number().int().min(0).max(10000).nullable().optional(),
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
@@ -169,10 +182,30 @@ export const updateTaskSchema = z
     notes: z.string().max(2000).nullable(),
     dueDate: z.string().datetime().nullable(),
     priority: taskPrioritySchema,
+    color: taskColorSchema,
+    estMinutes: z.number().int().min(0).max(10000).nullable(),
     done: z.boolean(),
   })
   .partial();
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
+export const createTaskStepSchema = z.object({
+  title: z.string().min(1).max(200),
+});
+export type CreateTaskStepInput = z.infer<typeof createTaskStepSchema>;
+
+export const updateTaskStepSchema = z
+  .object({ title: z.string().min(1).max(200), done: z.boolean() })
+  .partial();
+export type UpdateTaskStepInput = z.infer<typeof updateTaskStepSchema>;
+
+export interface TaskStep {
+  id: string;
+  title: string;
+  order: number;
+  done: boolean;
+  doneAt: string | null;
+}
 
 export interface Task {
   id: string;
@@ -180,9 +213,12 @@ export interface Task {
   notes: string | null;
   dueDate: string | null;
   priority: TaskPriority;
+  color: TaskColor | null;
+  estMinutes: number | null;
   done: boolean;
   doneAt: string | null;
   createdAt: string;
+  steps: TaskStep[];
 }
 
 /* -------------------------------------------------------------------------- */

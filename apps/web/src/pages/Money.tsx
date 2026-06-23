@@ -4,7 +4,6 @@ import { NetWorthChart } from "../components/Charts";
 import { AccountCard } from "../components/money/AccountCard";
 import { AccountSheet, BillSheet } from "../components/money/MoneySheets";
 import { Statements } from "../components/money/Statements";
-import { WeeklyReview } from "../components/money/WeeklyReview";
 import { useBills, useDeleteBill, useMoney } from "../lib/queries";
 
 const aed = (n: number) => `AED ${Math.round(n).toLocaleString()}`;
@@ -104,9 +103,6 @@ export function Money() {
 
       {/* Bank statements (Claude-parsed, encrypted at rest) */}
       <Statements />
-
-      {/* AI weekly reviews */}
-      <WeeklyReview />
 
       <AccountSheet open={acctOpen} onClose={() => setAcctOpen(false)} />
       <BillSheet open={billOpen} onClose={() => setBillOpen(false)} />

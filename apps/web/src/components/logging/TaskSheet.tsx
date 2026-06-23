@@ -1,11 +1,20 @@
-import { useState } from "react";
-import type { TaskPriority } from "@apex/shared";
-import { useAddTask } from "../../lib/queries";
+import { Check, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { Task, TaskColor, TaskPriority } from "@apex/shared";
+import {
+  useAddTask,
+  useAddTaskStep,
+  useDeleteTaskStep,
+  useUpdateTask,
+} from "../../lib/queries";
+import { TASK_COLORS, colorHex } from "../../lib/taskColors";
 import { Sheet, inputClass, primaryButtonClass, selectClass } from "../ui/Sheet";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** When set, the sheet edits this task instead of creating a new one. */
+  task?: Task | null;
 }
 
 const PRIORITIES: { value: TaskPriority; label: string }[] = [
@@ -14,39 +23,68 @@ const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: 3, label: "Low" },
 ];
 
-export function TaskSheet({ open, onClose }: Props) {
+function isoToDateInput(iso: string | null): string {
+  return iso ? iso.slice(0, 10) : "";
+}
+
+export function TaskSheet({ open, onClose, task }: Props) {
   const add = useAddTask();
+  const update = useUpdateTask();
+  const addStep = useAddTaskStep();
+  const delStep = useDeleteTaskStep();
+  const editing = Boolean(task);
+
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState<TaskPriority>(2);
+  const [color, setColor] = useState<TaskColor | null>(null);
+  const [est, setEst] = useState("");
+  const [notes, setNotes] = useState("");
+  const [newStep, setNewStep] = useState("");
 
-  function reset() {
-    setTitle("");
-    setDue("");
-    setPriority(2);
-  }
+  // Populate when opening an existing task (or reset for a new one).
+  useEffect(() => {
+    if (!open) return;
+    setTitle(task?.title ?? "");
+    setDue(isoToDateInput(task?.dueDate ?? null));
+    setPriority(task?.priority ?? 2);
+    setColor(task?.color ?? null);
+    setEst(task?.estMinutes ? String(task.estMinutes) : "");
+    setNotes(task?.notes ?? "");
+    setNewStep("");
+  }, [open, task]);
+
+  const busy = add.isPending || update.isPending;
 
   async function submit() {
     if (!title.trim()) return;
-    await add.mutateAsync({
+    const payload = {
       title: title.trim(),
       dueDate: due ? new Date(`${due}T09:00:00`).toISOString() : null,
       priority,
-    });
-    reset();
+      color,
+      estMinutes: est ? Math.round(Number(est)) : null,
+      notes: notes.trim() || null,
+    };
+    if (task) {
+      await update.mutateAsync({ id: task.id, input: payload });
+    } else {
+      await add.mutateAsync(payload);
+    }
     onClose();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Add a task">
+    <Sheet open={open} onClose={onClose} title={editing ? "Edit task" : "Add a task"}>
       <div className="space-y-4">
         <input
-          autoFocus
+          autoFocus={!editing}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="What needs doing?"
           className={inputClass}
         />
+
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-xs text-muted">Due (optional)</span>
@@ -61,9 +99,7 @@ export function TaskSheet({ open, onClose }: Props) {
             <span className="mb-1 block text-xs text-muted">Priority</span>
             <select
               value={priority}
-              onChange={(e) =>
-                setPriority(Number(e.target.value) as TaskPriority)
-              }
+              onChange={(e) => setPriority(Number(e.target.value) as TaskPriority)}
               className={selectClass}
             >
               {PRIORITIES.map((p) => (
@@ -74,13 +110,125 @@ export function TaskSheet({ open, onClose }: Props) {
             </select>
           </label>
         </div>
+
+        {/* Colour + estimate */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <span className="mb-1 block text-xs text-muted">Colour</span>
+            <div className="flex items-center gap-2">
+              {TASK_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={c}
+                  onClick={() => setColor(color === c ? null : c)}
+                  className="grid h-7 w-7 place-items-center rounded-full"
+                  style={{ backgroundColor: colorHex(c) }}
+                >
+                  {color === c && (
+                    <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted">Est. minutes</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={est}
+              onChange={(e) => setEst(e.target.value)}
+              placeholder="e.g. 30"
+              className={inputClass}
+            />
+          </label>
+        </div>
+
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">Notes (optional)</span>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Details…"
+            className={`${inputClass} resize-none`}
+          />
+        </label>
+
+        {/* Steps — only once the task exists */}
+        {editing && task && (
+          <div>
+            <span className="mb-1 block text-xs text-muted">
+              Steps (done in order)
+            </span>
+            {task.steps.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {task.steps.map((s, i) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm"
+                  >
+                    <span className="text-xs text-muted">{i + 1}.</span>
+                    <span
+                      className={`flex-1 ${s.done ? "text-muted line-through" : "text-text"}`}
+                    >
+                      {s.title}
+                    </span>
+                    <button
+                      onClick={() => delStep.mutate(s.id)}
+                      className="text-muted hover:text-bad"
+                      aria-label="Remove step"
+                    >
+                      <X className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={newStep}
+                onChange={(e) => setNewStep(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newStep.trim()) {
+                    addStep.mutate({ taskId: task.id, title: newStep.trim() });
+                    setNewStep("");
+                  }
+                }}
+                placeholder="Add a step…"
+                className={inputClass}
+              />
+              <button
+                onClick={() => {
+                  if (newStep.trim()) {
+                    addStep.mutate({ taskId: task.id, title: newStep.trim() });
+                    setNewStep("");
+                  }
+                }}
+                disabled={!newStep.trim() || addStep.isPending}
+                className="shrink-0 rounded-xl bg-surface-2 px-3 text-accent active:opacity-80 disabled:opacity-50"
+                aria-label="Add step"
+              >
+                <Plus className="h-5 w-5" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={submit}
-          disabled={add.isPending || !title.trim()}
+          disabled={busy || !title.trim()}
           className={primaryButtonClass}
         >
-          {add.isPending ? "Adding…" : "Add task"}
+          {busy ? "Saving…" : editing ? "Save changes" : "Add task"}
         </button>
+        {!editing && (
+          <p className="text-center text-xs text-muted">
+            Add the task first, then tap it to add steps.
+          </p>
+        )}
       </div>
     </Sheet>
   );

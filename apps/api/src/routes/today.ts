@@ -140,7 +140,26 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
     );
     const waterMl = waterLogs.reduce((sum, l) => sum + l.amountMl, 0);
 
-    const calories = progress(totals.calories, settings.calorieTarget);
+    // Energy balance: maintenance is the resting/lifestyle baseline; add today's
+    // activity (Apple Health active energy, or ~250 kcal per logged workout when
+    // Health isn't capturing it). The calorie *budget* grows with activity, so
+    // "how much can I still eat" reflects training.
+    const eaten = Math.round(totals.calories);
+    const activeKcal = health.activeEnergyKcal ?? 0;
+    const workoutEst = activeKcal > 0 ? 0 : todayWorkoutCount * 250;
+    const activity = Math.round(activeKcal + workoutEst);
+    const burned = Math.round(settings.maintenanceCalories + activity);
+    const budget = Math.round(settings.calorieTarget + activity);
+    const energy = {
+      eaten,
+      burned,
+      net: eaten - burned,
+      activeKcal: activity > 0 ? activity : null,
+      budget,
+      remaining: budget - eaten,
+    };
+
+    const calories = progress(totals.calories, budget);
     const protein = progress(totals.protein, settings.proteinTarget);
     const carbs = progress(totals.carbs, settings.carbTarget);
     const fat = progress(totals.fat, settings.fatTarget);
@@ -190,7 +209,8 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       plannedWorkoutDone: todayWorkoutCount > 0,
       habits,
       activeGoalCount: activeGoals.length,
-      caloriesOut: health.activeEnergyKcal,
+      caloriesOut: burned,
+      energy,
       steps: health.steps,
       netWorthAed: accounts.length ? netWorthTotal(accounts) : null,
       twinlyRevenueToday: todayRevenue._sum.revenueAed,

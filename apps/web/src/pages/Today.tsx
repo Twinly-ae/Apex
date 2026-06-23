@@ -275,6 +275,64 @@ export function Today() {
         </div>
       </section>
 
+      {/* Energy balance — activity-aware "how much can I still eat" */}
+      <section className="rounded-2xl border border-line bg-gradient-to-br from-surface to-surface-2 p-4">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted">
+          Energy balance
+        </h2>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div>
+            <div className="text-xs text-muted">Eaten</div>
+            <div className="mt-0.5 text-lg font-semibold tabular-nums text-text">
+              {data.energy.eaten.toLocaleString()}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Burned</div>
+            <div className="mt-0.5 text-lg font-semibold tabular-nums text-text">
+              {data.energy.burned.toLocaleString()}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Net</div>
+            <div
+              className={`mt-0.5 text-lg font-semibold tabular-nums ${
+                data.energy.net <= 0 ? "text-good" : "text-warn"
+              }`}
+            >
+              {data.energy.net > 0 ? "+" : ""}
+              {data.energy.net.toLocaleString()}
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-center text-sm text-text">
+          {data.energy.remaining > 0 ? (
+            <>
+              You can still eat{" "}
+              <span className="font-semibold text-accent">
+                {data.energy.remaining.toLocaleString()}
+              </span>{" "}
+              kcal
+            </>
+          ) : data.energy.remaining < 0 ? (
+            <>
+              You're{" "}
+              <span className="font-semibold text-warn">
+                {Math.abs(data.energy.remaining).toLocaleString()}
+              </span>{" "}
+              kcal over budget
+            </>
+          ) : (
+            <>You've hit your budget exactly</>
+          )}
+        </p>
+        <p className="mt-1 text-center text-xs text-muted">
+          Budget {data.energy.budget.toLocaleString()} kcal
+          {data.energy.activeKcal != null &&
+            ` · +${data.energy.activeKcal.toLocaleString()} earned from activity`}
+        </p>
+      </section>
+
       {/* At a glance */}
       <section className="grid grid-cols-2 gap-3">
         <StatCard
@@ -298,10 +356,11 @@ export function Today() {
           sub="latest"
         />
         <StatCard
-          label="Calories out"
-          value={data.caloriesOut != null ? data.caloriesOut : "—"}
-          sub="active energy"
-          soon={data.caloriesOut == null}
+          label="Burned"
+          value={
+            data.caloriesOut != null ? data.caloriesOut.toLocaleString() : "—"
+          }
+          sub="maintenance + activity"
         />
         <StatCard
           label="Steps"

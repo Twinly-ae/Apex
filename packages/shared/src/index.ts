@@ -195,6 +195,21 @@ export interface MacroProgress {
   remaining: number;
 }
 
+export interface EnergyBalance {
+  /** Calories eaten today. */
+  eaten: number;
+  /** Total burned = maintenance + activity. */
+  burned: number;
+  /** eaten − burned (negative = deficit). */
+  net: number;
+  /** Activity burn today (Apple Health active energy, or a workout estimate). */
+  activeKcal: number | null;
+  /** Activity-adjusted intake target (base target + activity). */
+  budget: number;
+  /** budget − eaten: how much you can still eat today. */
+  remaining: number;
+}
+
 export interface TodaySummary {
   date: string;
   greeting: string;
@@ -223,8 +238,10 @@ export interface TodaySummary {
   /** Habits for the quick-tick row on Today (Phase 2). */
   habits: Habit[];
   activeGoalCount: number;
-  /** From Apple Health ingest / accounts (Phase 3); null until data exists. */
+  /** Total energy burned today = maintenance + activity (Apple Health / workouts). */
   caloriesOut: number | null;
+  /** Energy balance: how much eaten vs burned, and how much you can still eat. */
+  energy: EnergyBalance;
   steps: number | null;
   netWorthAed: number | null;
   /** Twinly revenue logged today (Phase 4); null if none. */

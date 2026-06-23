@@ -637,6 +637,10 @@ export function Settings() {
       </Card>
 
       <DataCard />
+
+      <p className="pb-2 text-center text-xs text-muted">
+        Apex · build {__BUILD_ID__} · {__BUILD_TIME__}
+      </p>
     </div>
   );
 }

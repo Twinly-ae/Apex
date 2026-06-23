@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -6,7 +7,22 @@ import { VitePWA } from "vite-plugin-pwa";
 // (simplest cookies). In production set VITE_API_URL to the API's origin.
 const DEV_API_TARGET = process.env.VITE_DEV_API_TARGET || "http://localhost:8080";
 
+// Stamp the build so the live deploy is verifiable in-app (Settings footer).
+function buildId(): string {
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return "dev";
+  }
+}
+
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(buildId()),
+    __BUILD_TIME__: JSON.stringify(
+      new Date().toISOString().slice(0, 16).replace("T", " "),
+    ),
+  },
   plugins: [
     react(),
     VitePWA({

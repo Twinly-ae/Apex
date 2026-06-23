@@ -557,6 +557,21 @@ export interface HealthPoint {
   value: number;
 }
 
+/** 7-day wellbeing averages. */
+export interface HealthWeekly {
+  avgSleepHours: number | null;
+  avgRecovery: number | null;
+  avgRestingHr: number | null;
+  nights: number;
+}
+
+/** A day's energy in (food) vs out (maintenance + activity). */
+export interface EnergyPoint {
+  date: string;
+  kcalIn: number;
+  kcalOut: number;
+}
+
 export interface HealthResponse {
   day: string;
   scores: HealthScores;
@@ -567,6 +582,8 @@ export interface HealthResponse {
   sleepHours: number | null;
   sleepSeries: HealthPoint[];
   rhrSeries: HealthPoint[];
+  weekly: HealthWeekly;
+  energySeries: EnergyPoint[];
   updatedAt: string | null;
   hasData: boolean;
 }

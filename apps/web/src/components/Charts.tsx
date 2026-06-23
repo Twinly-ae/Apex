@@ -1,6 +1,7 @@
 import type {
   AdherencePoint,
   BodyweightPoint,
+  EnergyPoint,
   HealthPoint,
   NetWorthPoint,
   TrainingWeekPoint,
@@ -10,6 +11,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -211,6 +214,36 @@ export function RestingHrChart({ data }: { data: HealthPoint[] }) {
         <Tooltip {...TOOLTIP} />
         <Line type="monotone" dataKey="bpm" stroke="#fb7185" strokeWidth={2} dot={false} />
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function EnergyChart({ data }: { data: EnergyPoint[] }) {
+  if (data.length < 2) {
+    return <Empty msg="Log a few days of food to see calories in vs out." />;
+  }
+  const points = data.map((d) => ({
+    label: d.date.slice(5),
+    In: d.kcalIn,
+    Out: d.kcalOut,
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <ComposedChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -6 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={12}
+        />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} />
+        <Tooltip {...TOOLTIP} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Bar dataKey="In" fill="#7c6bff" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Line type="monotone" dataKey="Out" stroke="#fbbf24" strokeWidth={2} dot={false} />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

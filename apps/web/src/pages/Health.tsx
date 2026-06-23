@@ -4,6 +4,7 @@ import type { Workout, WorkoutSet } from "@apex/shared";
 import {
   AdherenceChart,
   BodyweightChart,
+  EnergyChart,
   RestingHrChart,
   SleepChart,
   TrainingChart,
@@ -303,6 +304,22 @@ export function Health() {
                 detail="from resting-HR rise + sleep debt"
               />
             </div>
+            {health.weekly.nights > 0 && (
+              <p className="mt-2 text-center text-xs text-muted">
+                7-day avg · sleep{" "}
+                <span className="text-text">
+                  {health.weekly.avgSleepHours ?? "—"}h
+                </span>{" "}
+                · recovery{" "}
+                <span className="text-text">
+                  {health.weekly.avgRecovery ?? "—"}
+                </span>{" "}
+                · resting HR{" "}
+                <span className="text-text">
+                  {health.weekly.avgRestingHr ?? "—"}
+                </span>
+              </p>
+            )}
           </>
         ) : (
           <p className="text-sm text-muted">
@@ -373,6 +390,10 @@ export function Health() {
 
       <ChartCard title="Calories vs target (14d)">
         <AdherenceChart data={trends.adherence} />
+      </ChartCard>
+
+      <ChartCard title="Calories in vs out (14d)">
+        <EnergyChart data={health?.energySeries ?? []} />
       </ChartCard>
 
       <ChartCard title="Training volume / week">

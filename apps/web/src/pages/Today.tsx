@@ -1,4 +1,4 @@
-import { Check, Sparkles } from "lucide-react";
+import { Check, RefreshCw, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
@@ -13,6 +13,7 @@ import {
   useGenerateBriefing,
   useGeneratePlan,
   usePlan,
+  useSyncHevy,
   useToday,
   useUpdateTask,
 } from "../lib/queries";
@@ -42,6 +43,7 @@ export function Today() {
   const genBriefing = useGenerateBriefing();
   const plan = usePlan();
   const genPlan = useGeneratePlan();
+  const syncHevy = useSyncHevy();
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const aiOn = briefing.data?.configured ?? false;
 
@@ -173,7 +175,7 @@ export function Today() {
 
       {/* Training today */}
       <section className="rounded-2xl border border-line bg-surface p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-xs uppercase tracking-wide text-muted">
               Training today
@@ -190,16 +192,46 @@ export function Today() {
               </span>
             ) : (
               <button
-                onClick={() => setWorkoutOpen(true)}
-                className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white active:opacity-80"
+                onClick={() => syncHevy.mutate()}
+                disabled={syncHevy.isPending}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3.5 py-2 text-sm font-semibold text-white shadow-glow active:scale-[0.99] disabled:opacity-60"
               >
-                Log session
+                <RefreshCw
+                  className={`h-4 w-4 ${syncHevy.isPending ? "animate-spin" : ""}`}
+                  strokeWidth={2.5}
+                />
+                {syncHevy.isPending ? "Syncing…" : "Sync Hevy"}
               </button>
             )
           ) : (
             <span className="text-sm text-muted">Recover well</span>
           )}
         </div>
+
+        {/* Sync feedback + manual fallback */}
+        {data.plannedWorkout && !data.plannedWorkoutDone && (
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
+            <p className="text-xs text-muted">
+              {syncHevy.isError
+                ? "Couldn't reach Hevy — try again."
+                : syncHevy.data
+                  ? syncHevy.data.connected
+                    ? syncHevy.data.imported > 0
+                      ? `Synced ${syncHevy.data.imported} workout${
+                          syncHevy.data.imported > 1 ? "s" : ""
+                        } from Hevy.`
+                      : "No new Hevy workout yet today."
+                    : (syncHevy.data.message ?? "Connect Hevy on the API.")
+                  : "Pulls today's session straight from Hevy."}
+            </p>
+            <button
+              onClick={() => setWorkoutOpen(true)}
+              className="shrink-0 text-xs font-medium text-accent active:opacity-70"
+            >
+              Log manually
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Habits */}

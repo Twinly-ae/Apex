@@ -16,7 +16,7 @@ const tabs: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: "/goals", label: "Goals", icon: Target },
   { to: "/health", label: "Health", icon: HeartPulse },
   { to: "/money", label: "Money", icon: Wallet },
-  { to: "/twinly", label: "Twinly", icon: Briefcase },
+  { to: "/businesses", label: "Business", icon: Briefcase },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 

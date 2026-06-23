@@ -12,6 +12,7 @@ import { env, isProd } from "./env";
 import aiRoutes from "./routes/ai";
 import billRoutes from "./routes/bills";
 import bodyweightRoutes from "./routes/bodyweight";
+import businessRoutes from "./routes/businesses";
 import exportRoutes from "./routes/export";
 import goalRoutes from "./routes/goals";
 import habitRoutes from "./routes/habits";
@@ -129,6 +130,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(metricsRoutes, { prefix: "/api/metrics" });
   await app.register(healthRoutes, { prefix: "/api/health" });
   await app.register(twinlyRoutes, { prefix: "/api/twinly" });
+  await app.register(businessRoutes, { prefix: "/api/businesses" });
   await app.register(aiRoutes, { prefix: "/api/ai" });
   await app.register(statementRoutes, { prefix: "/api/statements" });
   await app.register(pushRoutes, { prefix: "/api/push" });

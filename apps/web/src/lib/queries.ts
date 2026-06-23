@@ -558,6 +558,9 @@ export const useSyncHevy = () => {
 import type {
   AiChatMessage,
   AiText,
+  Business,
+  BusinessSummary,
+  CreateBusinessInput,
   CreateTwinlySaleInput,
   ImportStatementInput,
   MealEstimate,
@@ -565,7 +568,7 @@ import type {
   StatementDetail,
   StatementListItem,
   TwinlySale,
-  TwinlySalesSummary,
+  UpdateBusinessInput,
 } from "@apex/shared";
 
 /* ----- Chat ----- */
@@ -651,24 +654,40 @@ export const useBarcodeLookup = () =>
       api.get<MealEstimate>(`/api/meals/barcode/${code}`),
   });
 
-/* ----- Twinly sales ----- */
-export function useTwinlySales() {
+/* ----- Businesses (multi-business sales) ----- */
+export function useBusinesses() {
   return useQuery({
-    queryKey: ["twinly-sales"],
-    queryFn: () => api.get<TwinlySalesSummary>("/api/twinly/sales"),
+    queryKey: ["businesses"],
+    queryFn: () => api.get<BusinessSummary[]>("/api/businesses"),
   });
 }
-export function useSaveTwinlySale() {
+function useBusinessMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateTwinlySaleInput) =>
-      api.post<TwinlySale>("/api/twinly/sales", input),
+    mutationFn: fn,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["twinly-sales"] });
+      qc.invalidateQueries({ queryKey: ["businesses"] });
       qc.invalidateQueries({ queryKey: keys.today });
     },
   });
 }
+export const useAddBusiness = () =>
+  useBusinessMutation((input: CreateBusinessInput) =>
+    api.post<Business>("/api/businesses", input),
+  );
+export const useUpdateBusiness = () =>
+  useBusinessMutation(({ id, input }: { id: string; input: UpdateBusinessInput }) =>
+    api.patch<{ ok: true }>(`/api/businesses/${id}`, input),
+  );
+export const useDeleteBusiness = () =>
+  useBusinessMutation((id: string) =>
+    api.del<{ ok: true }>(`/api/businesses/${id}`),
+  );
+export const useSaveBusinessSale = () =>
+  useBusinessMutation(
+    ({ id, input }: { id: string; input: CreateTwinlySaleInput }) =>
+      api.post<TwinlySale>(`/api/businesses/${id}/sales`, input),
+  );
 
 /* ----- Bank statements ----- */
 export function useStatements() {

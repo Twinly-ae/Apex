@@ -90,7 +90,7 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       health,
       accounts,
       cachedBriefing,
-      todaySale,
+      todayRevenue,
     ] = await Promise.all([
       ensureSettings(userId),
       prisma.meal.findMany({
@@ -122,8 +122,9 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       healthSummary(userId),
       loadAccounts(userId),
       getArtifact(userId, "briefing", dayString()),
-      prisma.twinlySale.findUnique({
-        where: { userId_day: { userId, day: dayString() } },
+      prisma.twinlySale.aggregate({
+        where: { userId, day: dayString() },
+        _sum: { revenueAed: true },
       }),
     ]);
 
@@ -192,7 +193,7 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       caloriesOut: health.activeEnergyKcal,
       steps: health.steps,
       netWorthAed: accounts.length ? netWorthTotal(accounts) : null,
-      twinlyRevenueToday: todaySale ? todaySale.revenueAed : null,
+      twinlyRevenueToday: todayRevenue._sum.revenueAed,
       briefingByAI: Boolean(aiBriefing),
     };
   });

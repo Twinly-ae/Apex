@@ -30,6 +30,7 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       healthMetrics,
       twinlyExpenses,
       twinlySales,
+      businesses,
       bankStatements,
       aiMessages,
       aiArtifacts,
@@ -79,6 +80,7 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       }),
       prisma.twinlyExpense.findMany({ where: { userId }, orderBy: { date: "asc" } }),
       prisma.twinlySale.findMany({ where: { userId }, orderBy: { day: "asc" } }),
+      prisma.business.findMany({ where: { userId }, orderBy: { sortOrder: "asc" } }),
       prisma.bankStatement.findMany({
         where: { userId },
         orderBy: { month: "asc" },
@@ -125,6 +127,7 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       healthMetrics,
       twinlyExpenses,
       twinlySales,
+      businesses,
       bankStatements,
       aiMessages,
       aiArtifacts,

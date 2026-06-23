@@ -5,10 +5,10 @@ import { useMe } from "./lib/queries";
 import { Coach } from "./pages/Coach";
 import { Goals } from "./pages/Goals";
 import { Login } from "./pages/Login";
+import { Businesses } from "./pages/Businesses";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
 import { Today } from "./pages/Today";
-import { Twinly } from "./pages/Twinly";
 
 // Charts (recharts) are heavy — load chart-using screens only when visited.
 const Health = lazy(() =>
@@ -39,7 +39,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/coach" element={<Coach />} />
         <Route path="/goals" element={<Goals />} />
-        <Route path="/twinly" element={<Twinly />} />
+        <Route path="/businesses" element={<Businesses />} />
         <Route
           path="/money"
           element={

@@ -661,6 +661,34 @@ export interface TwinlySalesSummary {
   recent: TwinlySale[];
 }
 
+/* ----- Businesses (multiple revenue-generating businesses) ----- */
+
+export const createBusinessSchema = z.object({
+  name: z.string().min(1).max(80),
+});
+export type CreateBusinessInput = z.infer<typeof createBusinessSchema>;
+
+export const updateBusinessSchema = z.object({
+  name: z.string().min(1).max(80).optional(),
+  sortOrder: z.number().int().min(0).max(10000).optional(),
+});
+export type UpdateBusinessInput = z.infer<typeof updateBusinessSchema>;
+
+export interface Business {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
+/** A business plus its month-to-date sales rollup. */
+export interface BusinessSummary extends Business {
+  monthRevenueAed: number;
+  monthProfitAed: number;
+  monthOrders: number;
+  today: TwinlySale | null;
+  recent: TwinlySale[];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Bank statement import (parsed + categorized by Claude, encrypted at rest)  */
 /* -------------------------------------------------------------------------- */

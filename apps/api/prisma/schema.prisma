@@ -36,6 +36,7 @@ model User {
   aiMessages        AiMessage[]
   aiArtifacts       AiArtifact[]
   twinlySales       TwinlySale[]
+  businesses        Business[]
   bankStatements    BankStatement[]
   transactions      Transaction[]
   pushSubscriptions PushSubscription[]
@@ -335,10 +336,27 @@ model AiArtifact {
   @@unique([userId, kind, key])
 }
 
+/// A revenue-generating business the user runs (Twinly and others).
+model Business {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  sales     TwinlySale[]
+
+  @@index([userId])
+}
+
+/// Daily sales for one business (manual entry).
 model TwinlySale {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   day        String // local YYYY-MM-DD
   revenueAed Float    @default(0)
   orders     Int      @default(0)
@@ -347,7 +365,8 @@ model TwinlySale {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@unique([userId, day])
+  @@unique([businessId, day])
+  @@index([userId])
 }
 
 // ---- Phase 4: bank statements (encrypted at rest) ---------------------------

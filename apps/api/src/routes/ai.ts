@@ -9,6 +9,7 @@ import { prisma } from "../db";
 import { type AiMessageParam, aiConfigured, runText } from "../lib/ai";
 import {
   generateBriefing,
+  generateHealthTips,
   generatePlan,
   generateReview,
   getArtifact,
@@ -102,6 +103,25 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
     const { text, generatedAt } = await generateBriefing(request.userId);
+    return { configured: true, text, generatedAt: generatedAt.toISOString() };
+  });
+
+  /* ----- Health tips (recovery / sleep / stress) ----- */
+  app.get("/health-tips", async (request): Promise<AiText> => {
+    const a = await getArtifact(request.userId, "health-tips", dayString());
+    return {
+      configured: aiConfigured(),
+      text: a?.content ?? "",
+      generatedAt: a ? a.updatedAt.toISOString() : null,
+    };
+  });
+
+  app.post("/health-tips", async (request, reply): Promise<AiText | undefined> => {
+    if (!aiConfigured()) {
+      reply.code(503).send({ error: "AI is not configured" });
+      return;
+    }
+    const { text, generatedAt } = await generateHealthTips(request.userId);
     return { configured: true, text, generatedAt: generatedAt.toISOString() };
   });
 

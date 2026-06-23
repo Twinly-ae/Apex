@@ -621,6 +621,21 @@ export function usePlan() {
     queryFn: () => api.get<AiText>("/api/ai/plan"),
   });
 }
+
+/* ----- Health tips (recovery / sleep / stress) ----- */
+export function useHealthTips() {
+  return useQuery({
+    queryKey: ["ai-health-tips"],
+    queryFn: () => api.get<AiText>("/api/ai/health-tips"),
+  });
+}
+export function useGenerateHealthTips() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<AiText>("/api/ai/health-tips"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-health-tips"] }),
+  });
+}
 export function useGeneratePlan() {
   const qc = useQueryClient();
   return useMutation({

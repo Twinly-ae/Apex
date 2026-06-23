@@ -4,6 +4,8 @@ import type { Workout, WorkoutSet } from "@apex/shared";
 import {
   AdherenceChart,
   BodyweightChart,
+  RestingHrChart,
+  SleepChart,
   TrainingChart,
 } from "../components/Charts";
 import { StatCard } from "../components/StatCard";
@@ -12,7 +14,9 @@ import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { kg } from "../lib/format";
 import {
   useDeleteWorkout,
+  useGenerateHealthTips,
   useHealth,
+  useHealthTips,
   useSyncHevy,
   useTrends,
   useWorkouts,
@@ -159,6 +163,77 @@ function WorkoutRow({ w, onDelete }: { w: Workout; onDelete: () => void }) {
   );
 }
 
+function DetailRow({
+  label,
+  value,
+  detail,
+  invert,
+}: {
+  label: string;
+  value: number | null;
+  detail: string;
+  invert?: boolean;
+}) {
+  const v = value ?? 0;
+  const good = invert ? v <= 33 : v >= 75;
+  const bad = invert ? v >= 67 : v < 50;
+  const cls =
+    value == null ? "text-muted" : good ? "text-good" : bad ? "text-bad" : "text-warn";
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-text">
+        {label} <span className="text-xs text-muted">· {detail}</span>
+      </span>
+      <span className={`font-semibold tabular-nums ${cls}`}>
+        {value == null ? "—" : value}
+      </span>
+    </div>
+  );
+}
+
+function HealthTips() {
+  const tips = useHealthTips();
+  const gen = useGenerateHealthTips();
+  const configured = tips.data?.configured ?? false;
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
+          Coach tips
+        </h2>
+        {configured && (
+          <button
+            onClick={() => gen.mutate()}
+            disabled={gen.isPending}
+            className="text-xs text-accent active:opacity-70 disabled:opacity-50"
+          >
+            {gen.isPending
+              ? "Thinking…"
+              : tips.data?.text
+                ? "Refresh"
+                : "Get tips"}
+          </button>
+        )}
+      </div>
+      {!configured ? (
+        <p className="text-sm text-muted">
+          Set <code className="text-text">ANTHROPIC_API_KEY</code> on the API for
+          AI recovery, sleep, and stress tips.
+        </p>
+      ) : tips.data?.text ? (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-text">
+          {tips.data.text}
+        </p>
+      ) : (
+        <p className="text-sm text-muted">
+          Get 3 specific tips to improve your recovery, sleep, and stress from
+          your real data.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function Health() {
   const { data: trends, isLoading } = useTrends();
   const { data: workouts } = useWorkouts();
@@ -200,15 +275,34 @@ export function Health() {
               <ScoreRing label="Recovery" value={health.scores.recovery} />
               <ScoreRing label="Stress" value={health.scores.stress} invert />
             </div>
-            <p className="mt-3 text-center text-xs text-muted">
-              {health.sleepHours != null
-                ? `Slept ${health.sleepHours}h`
-                : "No sleep data"}
-              {health.restingHr != null &&
-                ` · Resting HR ${health.restingHr}${
-                  health.hrBaseline != null ? ` (avg ${health.hrBaseline})` : ""
-                } bpm`}
-            </p>
+            <div className="mt-3 space-y-1.5 border-t border-line pt-3">
+              <DetailRow
+                label="Sleep"
+                value={health.scores.sleep}
+                detail={
+                  health.sleepHours != null
+                    ? `${health.sleepHours}h · target 8h`
+                    : "no sleep data yet"
+                }
+              />
+              <DetailRow
+                label="Recovery"
+                value={health.scores.recovery}
+                detail={
+                  health.restingHr != null
+                    ? `resting HR ${health.restingHr} vs ${
+                        health.hrBaseline ?? "—"
+                      } baseline`
+                    : "needs resting heart rate"
+                }
+              />
+              <DetailRow
+                label="Stress"
+                value={health.scores.stress}
+                invert
+                detail="from resting-HR rise + sleep debt"
+              />
+            </div>
           </>
         ) : (
           <p className="text-sm text-muted">
@@ -217,6 +311,8 @@ export function Health() {
           </p>
         )}
       </section>
+
+      <HealthTips />
 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Streak" value={`${trends.trainingStreak}d`} sub="on plan" />
@@ -258,6 +354,18 @@ export function Health() {
           </p>
         )}
       </ChartCard>
+
+      {(health?.sleepSeries.length ?? 0) > 1 && (
+        <ChartCard title="Sleep (14d)">
+          <SleepChart data={health?.sleepSeries ?? []} />
+        </ChartCard>
+      )}
+
+      {(health?.rhrSeries.length ?? 0) > 1 && (
+        <ChartCard title="Resting heart rate (14d)">
+          <RestingHrChart data={health?.rhrSeries ?? []} />
+        </ChartCard>
+      )}
 
       <ChartCard title="Bodyweight">
         <BodyweightChart data={trends.bodyweight} />

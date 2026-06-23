@@ -2,6 +2,7 @@ import type { ReviewType } from "@apex/shared";
 import { prisma } from "../db";
 import { runText } from "./ai";
 import { buildUserContext } from "./context";
+import { computeHealth } from "./health";
 import { dayString, weekStartString } from "./time";
 
 const PERSONA =
@@ -73,6 +74,33 @@ export async function generatePlan(
     thinking: true,
   });
   const generatedAt = await setArtifact(userId, "plan", dayString(), text);
+  return { text, generatedAt };
+}
+
+/** 3 actionable recovery / sleep / stress tips from the day's wellbeing data. */
+export async function generateHealthTips(
+  userId: string,
+): Promise<{ text: string; generatedAt: Date }> {
+  const ctx = await buildUserContext(userId);
+  const h = await computeHealth(userId);
+  const extra =
+    `Wellbeing scores today (0–100, higher better except stress): sleep ${h.scores.sleep ?? "?"}, ` +
+    `recovery ${h.scores.recovery ?? "?"}, stress ${h.scores.stress ?? "?"}. ` +
+    `Resting HR ${h.restingHr ?? "?"} bpm vs ${h.hrBaseline ?? "?"} baseline; slept ${h.sleepHours ?? "?"}h. ` +
+    `Recent sleep hours: ${h.sleepSeries.map((p) => p.value).join(", ") || "none"}. ` +
+    `Recent resting HR: ${h.rhrSeries.map((p) => p.value).join(", ") || "none"}.`;
+  const text = await runText({
+    system: `${PERSONA} Give exactly 3 short, specific, actionable tips to improve his recovery, sleep, and stress given his data and 5x/week training load. One tip per line, each starting with "- ". No preamble, no headings.`,
+    messages: [
+      {
+        role: "user",
+        content: `My data:\n${ctx}\n${extra}\n\nGive me 3 recovery/sleep/stress tips.`,
+      },
+    ],
+    maxTokens: 400,
+    thinking: true,
+  });
+  const generatedAt = await setArtifact(userId, "health-tips", dayString(), text);
   return { text, generatedAt };
 }
 

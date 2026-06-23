@@ -86,7 +86,7 @@ export default async function mealRoutes(app: FastifyInstance): Promise<void> {
     const raw = Number(
       (request.query as Record<string, unknown> | undefined)?.days,
     );
-    const days = Math.min(Math.max(Number.isFinite(raw) ? raw : 7, 1), 31);
+    const days = Math.min(Math.max(Number.isFinite(raw) ? raw : 7, 1), 186);
     const now = new Date();
     const since = rangeForDayString(dayString(dayBefore(days - 1, now))).start;
     const meals = await prisma.meal.findMany({

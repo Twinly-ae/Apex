@@ -1,6 +1,7 @@
 import type {
   AdherencePoint,
   BodyweightPoint,
+  HealthPoint,
   NetWorthPoint,
   TrainingWeekPoint,
 } from "@apex/shared";
@@ -154,6 +155,61 @@ export function NetWorthChart({ data }: { data: NetWorthPoint[] }) {
           strokeWidth={2}
           dot={false}
         />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function SleepChart({ data }: { data: HealthPoint[] }) {
+  if (data.length < 2) {
+    return <Empty msg="A few nights of sleep data will show your trend." />;
+  }
+  const points = data.map((d) => ({ label: d.date.slice(5), hours: d.value }));
+  return (
+    <ResponsiveContainer width="100%" height={160}>
+      <BarChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -22 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={12}
+        />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={36} domain={[0, 10]} />
+        <Tooltip {...TOOLTIP} />
+        <ReferenceLine y={8} stroke="#34d399" strokeDasharray="4 4" />
+        <Bar dataKey="hours" fill="#7c6bff" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function RestingHrChart({ data }: { data: HealthPoint[] }) {
+  if (data.length < 2) {
+    return <Empty msg="Resting-HR trend appears after a few days of data." />;
+  }
+  const points = data.map((d) => ({ label: d.date.slice(5), bpm: d.value }));
+  return (
+    <ResponsiveContainer width="100%" height={160}>
+      <LineChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -18 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={20}
+        />
+        <YAxis
+          tick={AXIS}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+          domain={["dataMin - 3", "dataMax + 3"]}
+        />
+        <Tooltip {...TOOLTIP} />
+        <Line type="monotone" dataKey="bpm" stroke="#fb7185" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );

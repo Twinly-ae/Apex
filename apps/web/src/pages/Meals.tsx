@@ -59,8 +59,16 @@ function MealRow({ m }: { m: Meal }) {
   );
 }
 
+const RANGES: { label: string; days: number }[] = [
+  { label: "2 wks", days: 14 },
+  { label: "1 mo", days: 31 },
+  { label: "3 mo", days: 93 },
+  { label: "6 mo", days: 186 },
+];
+
 export function Meals() {
-  const { data, isLoading } = useMealHistory(7);
+  const [days, setDays] = useState(14);
+  const { data, isLoading } = useMealHistory(days);
   const { data: settings } = useSettings();
   const [open, setOpen] = useState(false);
   const target = settings?.calorieTarget ?? null;
@@ -86,6 +94,21 @@ export function Meals() {
           Log
         </button>
       </header>
+
+      {/* Range selector */}
+      <div className="grid grid-cols-4 gap-1 rounded-xl bg-surface-2 p-1">
+        {RANGES.map((r) => (
+          <button
+            key={r.days}
+            onClick={() => setDays(r.days)}
+            className={`rounded-lg py-2 text-xs font-medium ${
+              days === r.days ? "bg-accent text-white" : "text-muted"
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
 
       {isLoading ? (
         <div className="h-40 animate-pulse rounded-2xl bg-surface" />

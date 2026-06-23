@@ -1,4 +1,4 @@
-import { Camera } from "lucide-react";
+import { Barcode, Camera } from "lucide-react";
 import { useState } from "react";
 import type { MealEstimate, MealSource } from "@apex/shared";
 import {
@@ -53,19 +53,39 @@ function NumField({
   );
 }
 
-function readImage(file: File): Promise<{ data: string; mediaType: string }> {
+function readImage(
+  file: File,
+): Promise<{ dataUrl: string; data: string; mediaType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const res = String(reader.result);
-      const comma = res.indexOf(",");
-      const meta = res.slice(0, comma);
+      const dataUrl = String(reader.result);
+      const comma = dataUrl.indexOf(",");
+      const meta = dataUrl.slice(0, comma);
       const m = /data:(.*?);base64/.exec(meta);
-      resolve({ data: res.slice(comma + 1), mediaType: m?.[1] || "image/jpeg" });
+      resolve({
+        dataUrl,
+        data: dataUrl.slice(comma + 1),
+        mediaType: m?.[1] || "image/jpeg",
+      });
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+/** Decode a 1D/2D barcode from a photo. ZXing is loaded on demand. */
+async function decodeBarcode(dataUrl: string): Promise<string | null> {
+  try {
+    const { BrowserMultiFormatReader } = await import("@zxing/browser");
+    const result = await new BrowserMultiFormatReader().decodeFromImageUrl(
+      dataUrl,
+    );
+    const digits = result.getText().replace(/\D/g, "");
+    return digits.length >= 6 ? digits : null;
+  } catch {
+    return null; // no barcode found / unreadable
+  }
 }
 
 export function MealSheet({ open, onClose }: Props) {
@@ -77,6 +97,12 @@ export function MealSheet({ open, onClose }: Props) {
   const [mode, setMode] = useState<Mode>("describe");
   const [prompt, setPrompt] = useState(""); // text/barcode input
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  // Last captured photo, kept so a failed barcode can fall back to an AI guess.
+  const [lastPhoto, setLastPhoto] = useState<{
+    data: string;
+    mediaType: string;
+  } | null>(null);
 
   const [description, setDescription] = useState("");
   const [calories, setCalories] = useState("");
@@ -84,8 +110,11 @@ export function MealSheet({ open, onClose }: Props) {
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
 
-  const estimating =
-    analyzeText.isPending || analyzePhoto.isPending || barcode.isPending;
+  const busy =
+    analyzeText.isPending ||
+    analyzePhoto.isPending ||
+    barcode.isPending ||
+    scanning;
 
   function applyEstimate(e: MealEstimate) {
     setDescription(e.description);
@@ -103,6 +132,8 @@ export function MealSheet({ open, onClose }: Props) {
     setCarbs("");
     setFat("");
     setError(null);
+    setScanning(false);
+    setLastPhoto(null);
   }
 
   async function run(fn: () => Promise<MealEstimate>) {
@@ -117,7 +148,41 @@ export function MealSheet({ open, onClose }: Props) {
   async function onPhoto(file: File | undefined) {
     if (!file) return;
     const { data, mediaType } = await readImage(file);
+    setLastPhoto({ data, mediaType });
     await run(() => analyzePhoto.mutateAsync({ imageBase64: data, mediaType }));
+  }
+
+  async function onBarcodePhoto(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setScanning(true);
+    try {
+      const img = await readImage(file);
+      setLastPhoto({ data: img.data, mediaType: img.mediaType });
+      const code = await decodeBarcode(img.dataUrl);
+      setScanning(false);
+      if (code) {
+        setPrompt(code);
+        await run(() => barcode.mutateAsync(code));
+      } else {
+        setError(
+          "Couldn't read a barcode in that photo — type the number, or estimate it with AI below.",
+        );
+      }
+    } catch {
+      setScanning(false);
+      setError("Couldn't read that image.");
+    }
+  }
+
+  async function estimatePhotoWithAi() {
+    if (!lastPhoto) return;
+    await run(() =>
+      analyzePhoto.mutateAsync({
+        imageBase64: lastPhoto.data,
+        mediaType: lastPhoto.mediaType,
+      }),
+    );
   }
 
   async function submit() {
@@ -175,17 +240,17 @@ export function MealSheet({ open, onClose }: Props) {
             />
             <button
               onClick={() => run(() => analyzeText.mutateAsync(prompt))}
-              disabled={!prompt.trim() || estimating}
-              className="shrink-0 rounded-xl bg-surface-2 px-4 text-sm text-text active:opacity-80"
+              disabled={!prompt.trim() || busy}
+              className="shrink-0 rounded-xl bg-surface-2 px-4 text-sm text-text active:opacity-80 disabled:opacity-50"
             >
-              {estimating ? "…" : "Estimate"}
+              {busy ? "…" : "Estimate"}
             </button>
           </div>
         )}
         {mode === "photo" && (
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface-2 py-6 text-sm text-muted">
             <Camera className="h-5 w-5" strokeWidth={2} />
-            {estimating ? "Analyzing photo…" : "Tap to take / choose a photo"}
+            {busy ? "Analyzing photo…" : "Tap to take / choose a photo"}
             <input
               type="file"
               accept="image/*"
@@ -196,22 +261,45 @@ export function MealSheet({ open, onClose }: Props) {
           </label>
         )}
         {mode === "barcode" && (
-          <div className="flex gap-2">
-            <input
-              autoFocus
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              inputMode="numeric"
-              placeholder="Barcode number"
-              className={inputClass}
-            />
-            <button
-              onClick={() => run(() => barcode.mutateAsync(prompt.trim()))}
-              disabled={!/^\d{6,14}$/.test(prompt.trim()) || estimating}
-              className="shrink-0 rounded-xl bg-surface-2 px-4 text-sm text-text active:opacity-80"
-            >
-              {estimating ? "…" : "Look up"}
-            </button>
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface-2 py-5 text-sm text-muted">
+              <Barcode className="h-5 w-5" strokeWidth={2} />
+              {scanning ? "Reading barcode…" : "Scan a barcode photo"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => onBarcodePhoto(e.target.files?.[0])}
+              />
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                inputMode="numeric"
+                placeholder="…or type the barcode number"
+                className={inputClass}
+              />
+              <button
+                onClick={() => run(() => barcode.mutateAsync(prompt.trim()))}
+                disabled={!/^\d{6,14}$/.test(prompt.trim()) || busy}
+                className="shrink-0 rounded-xl bg-surface-2 px-4 text-sm text-text active:opacity-80 disabled:opacity-50"
+              >
+                {busy ? "…" : "Look up"}
+              </button>
+            </div>
+            {lastPhoto && (
+              <button
+                onClick={estimatePhotoWithAi}
+                disabled={busy}
+                className="w-full rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-medium text-accent active:opacity-80 disabled:opacity-50"
+              >
+                {analyzePhoto.isPending
+                  ? "Estimating…"
+                  : "Estimate that photo with AI instead"}
+              </button>
+            )}
           </div>
         )}
 

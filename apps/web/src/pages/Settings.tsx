@@ -14,6 +14,7 @@ import {
   useInvalidatePushConfig,
   useLogout,
   useMe,
+  useMetricsSummary,
   usePushConfig,
   useSendTestPush,
   useSettings,
@@ -337,6 +338,93 @@ function IntegrationsCard() {
   );
 }
 
+function AppleHealthCard() {
+  const { data: status } = useIntegrationStatus();
+  const { data: metrics } = useMetricsSummary();
+  const [copied, setCopied] = useState(false);
+  const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
+  const url = `${apiBase}/api/ingest/health`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard blocked — the URL is visible to copy by hand
+    }
+  }
+
+  return (
+    <Card title="Apple Health (steps & watch)">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-2 text-text">
+          <span
+            className={`h-2 w-2 rounded-full ${
+              status?.healthIngest
+                ? "bg-good shadow-[0_0_8px] shadow-good/60"
+                : "bg-muted/40"
+            }`}
+          />
+          {status?.healthIngest ? "Endpoint ready" : "Not set up"}
+        </span>
+        <span className="text-xs text-muted">
+          {metrics?.updatedAt
+            ? `Last data ${new Date(metrics.updatedAt).toLocaleString()}`
+            : "No data yet"}
+        </span>
+      </div>
+
+      {metrics?.steps != null && (
+        <p className="mt-2 text-sm text-text">
+          {metrics.steps.toLocaleString()} steps today
+        </p>
+      )}
+
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        A web app can't read Apple Health directly. Your Watch syncs to Apple
+        Health, and the <span className="text-text">Health Auto Export</span> app
+        posts that data here:
+      </p>
+
+      <div className="mt-2 flex items-center gap-2">
+        <code className="flex-1 truncate rounded-lg bg-surface-2 px-3 py-2 text-xs text-text">
+          {url}
+        </code>
+        <button
+          onClick={copy}
+          className="shrink-0 rounded-lg bg-surface-2 px-3 py-2 text-xs font-medium text-accent active:opacity-80"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+
+      <ol className="mt-3 list-decimal space-y-1 pl-4 text-xs leading-relaxed text-muted">
+        <li>
+          Set <code className="text-text">HEALTH_INGEST_TOKEN</code> on the API
+          (Railway), then redeploy.
+        </li>
+        <li>
+          Install <span className="text-text">Health Auto Export – JSON+CSV</span>{" "}
+          from the App Store.
+        </li>
+        <li>
+          Add a <span className="text-text">REST API</span> automation → POST the
+          URL above, format JSON.
+        </li>
+        <li>
+          Add header <code className="text-text">x-ingest-token</code> set to your
+          token.
+        </li>
+        <li>
+          Choose Steps, Active Energy, Heart Rate, Sleep, Body Mass → run on a
+          schedule (e.g. hourly).
+        </li>
+      </ol>
+    </Card>
+  );
+}
+
 function NotificationsCard() {
   const { data: cfg } = usePushConfig();
   const updatePrefs = useUpdatePushPrefs();
@@ -534,6 +622,7 @@ export function Settings() {
 
       <TargetsCard />
       <IntegrationsCard />
+      <AppleHealthCard />
       <NotificationsCard />
       <PasswordCard />
 

@@ -1,6 +1,6 @@
-import { Trash2 } from "lucide-react";
+import { ChevronRight, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import type { Workout } from "@apex/shared";
+import type { Workout, WorkoutSet } from "@apex/shared";
 import {
   AdherenceChart,
   BodyweightChart,
@@ -37,6 +37,83 @@ function ChartCard({
 
 function workoutVolume(w: Workout): number {
   return w.sets.reduce((s, set) => s + (set.weightKg ?? 0) * (set.reps ?? 0), 0);
+}
+
+/** Group flat sets back into their exercises, preserving order. */
+function groupByExercise(sets: WorkoutSet[]): [string, WorkoutSet[]][] {
+  const map = new Map<string, WorkoutSet[]>();
+  for (const s of [...sets].sort((a, b) => a.order - b.order)) {
+    const list = map.get(s.exercise);
+    if (list) list.push(s);
+    else map.set(s.exercise, [s]);
+  }
+  return [...map.entries()];
+}
+
+/** A workout row that expands to show its exercises, weights, and reps. */
+function WorkoutRow({ w, onDelete }: { w: Workout; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const hasDetail = w.sets.length > 0;
+  return (
+    <li className="py-3">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => hasDetail && setOpen((o) => !o)}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          {hasDetail ? (
+            <ChevronRight
+              className={`h-4 w-4 shrink-0 text-muted transition-transform ${
+                open ? "rotate-90" : ""
+              }`}
+              strokeWidth={2}
+            />
+          ) : (
+            <span className="w-4 shrink-0" />
+          )}
+          <span className="flex-1">
+            <span className="flex items-center gap-2">
+              <span className="text-text">{w.title}</span>
+              {w.source === "hevy" && (
+                <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                  Hevy
+                </span>
+              )}
+            </span>
+            <span className="block text-xs text-muted">
+              {new Date(w.performedAt).toLocaleDateString()} · {w.sets.length} sets
+              · {Math.round(workoutVolume(w))} kg volume
+            </span>
+          </span>
+        </button>
+        <button
+          onClick={onDelete}
+          className="-m-2 p-2 text-muted hover:text-bad"
+          aria-label="Delete workout"
+        >
+          <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
+        </button>
+      </div>
+
+      {open && (
+        <div className="ml-6 mt-2 space-y-2 rounded-xl bg-surface-2 p-3">
+          {groupByExercise(w.sets).map(([exercise, sets]) => (
+            <div key={exercise}>
+              <div className="text-sm font-medium text-text">{exercise}</div>
+              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums text-muted">
+                {sets.map((s, i) => (
+                  <span key={s.id}>
+                    {i + 1}. {s.weightKg != null ? `${s.weightKg} kg` : "BW"}
+                    {s.reps != null ? ` × ${s.reps}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </li>
+  );
 }
 
 export function Trends() {
@@ -152,9 +229,11 @@ export function Trends() {
         </div>
         {syncHevy.data && (
           <p className="mb-2 text-xs text-muted">
-            {syncHevy.data.connected
-              ? `Imported ${syncHevy.data.imported} new workouts.`
-              : syncHevy.data.message}
+            {syncHevy.data.message
+              ? syncHevy.data.message
+              : `Imported ${syncHevy.data.imported} new workout${
+                  syncHevy.data.imported === 1 ? "" : "s"
+                } (${syncHevy.data.total} found in Hevy).`}
           </p>
         )}
         {(workouts ?? []).length === 0 ? (
@@ -162,22 +241,11 @@ export function Trends() {
         ) : (
           <ul className="divide-y divide-line">
             {(workouts ?? []).map((w) => (
-              <li key={w.id} className="flex items-center gap-3 py-3">
-                <div className="flex-1">
-                  <div className="text-text">{w.title}</div>
-                  <div className="text-xs text-muted">
-                    {new Date(w.performedAt).toLocaleDateString()} · {w.sets.length}{" "}
-                    sets · {Math.round(workoutVolume(w))} kg volume
-                  </div>
-                </div>
-                <button
-                  onClick={() => delWorkout.mutate(w.id)}
-                  className="-m-2 p-2 text-muted hover:text-bad"
-                  aria-label="Delete workout"
-                >
-                  <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
-                </button>
-              </li>
+              <WorkoutRow
+                key={w.id}
+                w={w}
+                onDelete={() => delWorkout.mutate(w.id)}
+              />
             ))}
           </ul>
         )}

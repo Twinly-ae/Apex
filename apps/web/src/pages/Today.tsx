@@ -215,13 +215,13 @@ export function Today() {
               {syncHevy.isError
                 ? "Couldn't reach Hevy — try again."
                 : syncHevy.data
-                  ? syncHevy.data.connected
-                    ? syncHevy.data.imported > 0
+                  ? syncHevy.data.message
+                    ? syncHevy.data.message
+                    : syncHevy.data.imported > 0
                       ? `Synced ${syncHevy.data.imported} workout${
                           syncHevy.data.imported > 1 ? "s" : ""
                         } from Hevy.`
                       : "No new Hevy workout yet today."
-                    : (syncHevy.data.message ?? "Connect Hevy on the API.")
                   : "Pulls today's session straight from Hevy."}
             </p>
             <button

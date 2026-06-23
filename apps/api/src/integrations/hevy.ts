@@ -29,7 +29,14 @@ async function hevyGet<T>(path: string): Promise<T> {
     headers: { "api-key": env.HEVY_API_KEY as string, accept: "application/json" },
   });
   if (!res.ok) {
-    throw new Error(`Hevy API responded ${res.status}`);
+    // Include the body — Hevy explains *why* here (bad key, or API access needs
+    // Hevy Pro), which is far more useful than a bare status code.
+    const body = await res.text().catch(() => "");
+    const hint =
+      res.status === 401
+        ? " (check HEVY_API_KEY — and Hevy API access requires Hevy Pro)"
+        : "";
+    throw new Error(`Hevy API ${res.status}: ${body.slice(0, 180) || res.statusText}${hint}`);
   }
   return (await res.json()) as T;
 }

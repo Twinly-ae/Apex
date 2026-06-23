@@ -8,6 +8,7 @@ import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
 import { Today } from "./pages/Today";
+import { Twinly } from "./pages/Twinly";
 
 // Charts (recharts) are heavy — load chart-using screens only when visited.
 const Trends = lazy(() =>
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/coach" element={<Coach />} />
         <Route path="/goals" element={<Goals />} />
+        <Route path="/twinly" element={<Twinly />} />
         <Route
           path="/money"
           element={

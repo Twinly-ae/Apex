@@ -1,27 +1,18 @@
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { NetWorthChart } from "../components/Charts";
 import { AccountCard } from "../components/money/AccountCard";
 import { AccountSheet, BillSheet } from "../components/money/MoneySheets";
 import { Statements } from "../components/money/Statements";
-import { TwinlySales } from "../components/money/TwinlySales";
 import { WeeklyReview } from "../components/money/WeeklyReview";
-import {
-  useBills,
-  useDeleteBill,
-  useMoney,
-  useSyncTwinly,
-  useTwinlySummary,
-} from "../lib/queries";
+import { useBills, useDeleteBill, useMoney } from "../lib/queries";
 
 const aed = (n: number) => `AED ${Math.round(n).toLocaleString()}`;
 
 export function Money() {
   const { data: money, isLoading } = useMoney();
   const { data: bills } = useBills();
-  const { data: twinly } = useTwinlySummary();
   const deleteBill = useDeleteBill();
-  const syncTwinly = useSyncTwinly();
   const [acctOpen, setAcctOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
 
@@ -108,76 +99,6 @@ export function Money() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
-
-      {/* Twinly sales (manual daily entry) */}
-      <TwinlySales />
-
-      {/* Twinly expenses (Notion) */}
-      <section className="rounded-2xl border border-line bg-surface p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
-            Twinly expenses
-          </h2>
-          <button
-            onClick={() => syncTwinly.mutate()}
-            disabled={syncTwinly.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-text active:opacity-80 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${syncTwinly.isPending ? "animate-spin" : ""}`}
-              strokeWidth={2}
-            />
-            {syncTwinly.isPending ? "Syncing…" : "Sync Notion"}
-          </button>
-        </div>
-
-        {syncTwinly.data && (
-          <p className="mb-3 text-xs text-muted">
-            {syncTwinly.data.connected
-              ? `Synced ${syncTwinly.data.imported} expenses.`
-              : syncTwinly.data.message}
-          </p>
-        )}
-
-        {twinly && twinly.connected ? (
-          <>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-surface-2 p-3">
-                <div className="text-xs text-muted">This month</div>
-                <div className="text-lg font-semibold text-text">
-                  {aed(twinly.monthToDateAed)}
-                </div>
-              </div>
-              <div className="rounded-xl bg-surface-2 p-3">
-                <div className="text-xs text-muted">Last month</div>
-                <div className="text-lg font-semibold text-text">
-                  {aed(twinly.lastMonthAed)}
-                </div>
-              </div>
-            </div>
-            {twinly.byCategory.length > 0 && (
-              <ul className="mt-3 space-y-1 text-sm">
-                {twinly.byCategory.slice(0, 6).map((c) => (
-                  <li
-                    key={c.category}
-                    className="flex justify-between text-muted"
-                  >
-                    <span>{c.category}</span>
-                    <span className="tabular-nums text-text">
-                      {aed(c.amountAed)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-muted">
-            Set <code className="text-text">NOTION_TOKEN</code> on the API to pull
-            your Business Expenses database, then tap Sync.
-          </p>
         )}
       </section>
 

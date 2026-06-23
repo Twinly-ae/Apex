@@ -1,4 +1,5 @@
 import {
+  Building2,
   Home,
   type LucideIcon,
   ListChecks,
@@ -15,6 +16,7 @@ const tabs: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: "/goals", label: "Goals", icon: Target },
   { to: "/trends", label: "Trends", icon: TrendingUp },
   { to: "/money", label: "Money", icon: Wallet },
+  { to: "/twinly", label: "Twinly", icon: Building2 },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -32,7 +34,7 @@ export function BottomNav() {
             {({ isActive }) => (
               <>
                 <span
-                  className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${
+                  className={`flex h-7 w-10 items-center justify-center rounded-full transition-colors ${
                     isActive ? "bg-accent/15 text-accent" : "text-muted"
                   }`}
                 >

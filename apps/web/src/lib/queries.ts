@@ -18,6 +18,7 @@ import type {
   Habit,
   LoginInput,
   Meal,
+  MealDay,
   PublicUser,
   Settings,
   SettingsInput,
@@ -123,6 +124,13 @@ export function useMeals(date?: string) {
   });
 }
 
+export function useMealHistory(days = 7) {
+  return useQuery({
+    queryKey: ["meal-history", days],
+    queryFn: () => api.get<MealDay[]>(`/api/meals/history?days=${days}`),
+  });
+}
+
 export function useAddMeal() {
   const qc = useQueryClient();
   const invalidateDaily = useInvalidateDaily();
@@ -130,6 +138,7 @@ export function useAddMeal() {
     mutationFn: (input: CreateMealInput) => api.post<Meal>("/api/meals", input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["meals"] });
+      qc.invalidateQueries({ queryKey: ["meal-history"] });
       invalidateDaily();
     },
   });
@@ -142,6 +151,7 @@ export function useDeleteMeal() {
     mutationFn: (id: string) => api.del<{ ok: true }>(`/api/meals/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["meals"] });
+      qc.invalidateQueries({ queryKey: ["meal-history"] });
       invalidateDaily();
     },
   });

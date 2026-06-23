@@ -246,9 +246,17 @@ export function Today() {
 
       {/* Today's targets */}
       <section className="rounded-2xl border border-line bg-surface p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted">
-          Today's targets
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
+            Today's targets
+          </h2>
+          <Link
+            to="/meals"
+            className="text-xs font-medium text-accent active:opacity-70"
+          >
+            Food log →
+          </Link>
+        </div>
         <div className="space-y-3">
           <MacroBar
             label="Protein"

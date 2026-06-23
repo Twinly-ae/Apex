@@ -5,6 +5,7 @@ import {
   createMealSchema,
   dayStringSchema,
   idParamSchema,
+  type MealDay,
 } from "@apex/shared";
 import { prisma } from "../db";
 import { aiConfigured } from "../lib/ai";
@@ -15,7 +16,7 @@ import {
 } from "../lib/food";
 import { parseOr400 } from "../lib/http";
 import { toMeal } from "../lib/serializers";
-import { rangeForDayString } from "../lib/time";
+import { dayBefore, dayString, rangeForDayString } from "../lib/time";
 
 export default async function mealRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
@@ -77,6 +78,40 @@ export default async function mealRoutes(app: FastifyInstance): Promise<void> {
     } catch {
       reply.code(502).send({ error: "Barcode lookup failed" });
     }
+  });
+
+  // GET /api/meals/history?days=N — recent days grouped, newest first, each
+  // with its meals + rolled-up totals. Always includes today + the prior 2 days.
+  app.get("/history", async (request) => {
+    const raw = Number(
+      (request.query as Record<string, unknown> | undefined)?.days,
+    );
+    const days = Math.min(Math.max(Number.isFinite(raw) ? raw : 7, 1), 31);
+    const now = new Date();
+    const since = rangeForDayString(dayString(dayBefore(days - 1, now))).start;
+    const meals = await prisma.meal.findMany({
+      where: { userId: request.userId, eatenAt: { gte: since } },
+      orderBy: { eatenAt: "desc" },
+    });
+
+    const out: MealDay[] = [];
+    for (let i = 0; i < days; i++) {
+      const ds = dayString(dayBefore(i, now));
+      const { start, end } = rangeForDayString(ds);
+      const dayMeals = meals.filter((m) => m.eatenAt >= start && m.eatenAt < end);
+      if (dayMeals.length === 0 && i > 2) continue; // keep today + prior 2 days
+      const totals = dayMeals.reduce(
+        (t, m) => ({
+          calories: t.calories + m.calories,
+          protein: Math.round((t.protein + m.protein) * 10) / 10,
+          carbs: Math.round((t.carbs + m.carbs) * 10) / 10,
+          fat: Math.round((t.fat + m.fat) * 10) / 10,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+      out.push({ day: ds, totals, meals: dayMeals.map(toMeal) });
+    }
+    return out;
   });
 
   // GET /api/meals?date=YYYY-MM-DD  (defaults to today)

@@ -102,6 +102,13 @@ export interface Meal {
   source: MealSource;
 }
 
+/** A day's meals plus their rolled-up totals (for the food log). */
+export interface MealDay {
+  day: string;
+  totals: { calories: number; protein: number; carbs: number; fat: number };
+  meals: Meal[];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Bodyweight                                                                 */
 /* -------------------------------------------------------------------------- */

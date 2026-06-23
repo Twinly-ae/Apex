@@ -521,6 +521,32 @@ export interface HealthSummary {
   updatedAt: string | null;
 }
 
+/** Derived 0–100 wellbeing scores (higher = better, except stress). */
+export interface HealthScores {
+  sleep: number | null;
+  recovery: number | null;
+  stress: number | null; // higher = more stressed
+}
+
+export interface HealthPoint {
+  date: string;
+  value: number;
+}
+
+export interface HealthResponse {
+  day: string;
+  scores: HealthScores;
+  steps: number | null;
+  activeEnergyKcal: number | null;
+  restingHr: number | null;
+  hrBaseline: number | null;
+  sleepHours: number | null;
+  sleepSeries: HealthPoint[];
+  rhrSeries: HealthPoint[];
+  updatedAt: string | null;
+  hasData: boolean;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Twinly expenses (cached from Notion)                                       */
 /* -------------------------------------------------------------------------- */

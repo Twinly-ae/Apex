@@ -1,11 +1,11 @@
 import {
-  Building2,
+  Briefcase,
+  HeartPulse,
   Home,
   type LucideIcon,
   ListChecks,
   Settings as SettingsIcon,
   Target,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -14,9 +14,9 @@ const tabs: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: "/", label: "Today", icon: Home, end: true },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/goals", label: "Goals", icon: Target },
-  { to: "/trends", label: "Trends", icon: TrendingUp },
+  { to: "/health", label: "Health", icon: HeartPulse },
   { to: "/money", label: "Money", icon: Wallet },
-  { to: "/twinly", label: "Twinly", icon: Building2 },
+  { to: "/twinly", label: "Twinly", icon: Briefcase },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 

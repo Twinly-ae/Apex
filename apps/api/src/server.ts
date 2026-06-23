@@ -15,6 +15,7 @@ import bodyweightRoutes from "./routes/bodyweight";
 import exportRoutes from "./routes/export";
 import goalRoutes from "./routes/goals";
 import habitRoutes from "./routes/habits";
+import healthRoutes from "./routes/health";
 import ingestRoutes from "./routes/ingest";
 import mealRoutes from "./routes/meals";
 import metricsRoutes from "./routes/metrics";
@@ -126,6 +127,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(moneyRoutes, { prefix: "/api/money" });
   await app.register(billRoutes, { prefix: "/api/bills" });
   await app.register(metricsRoutes, { prefix: "/api/metrics" });
+  await app.register(healthRoutes, { prefix: "/api/health" });
   await app.register(twinlyRoutes, { prefix: "/api/twinly" });
   await app.register(aiRoutes, { prefix: "/api/ai" });
   await app.register(statementRoutes, { prefix: "/api/statements" });

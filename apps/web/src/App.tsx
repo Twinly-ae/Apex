@@ -11,8 +11,8 @@ import { Today } from "./pages/Today";
 import { Twinly } from "./pages/Twinly";
 
 // Charts (recharts) are heavy — load chart-using screens only when visited.
-const Trends = lazy(() =>
-  import("./pages/Trends").then((m) => ({ default: m.Trends })),
+const Health = lazy(() =>
+  import("./pages/Health").then((m) => ({ default: m.Health })),
 );
 const Money = lazy(() =>
   import("./pages/Money").then((m) => ({ default: m.Money })),
@@ -49,10 +49,10 @@ export default function App() {
           }
         />
         <Route
-          path="/trends"
+          path="/health"
           element={
             <Suspense fallback={<Splash />}>
-              <Trends />
+              <Health />
             </Suspense>
           }
         />

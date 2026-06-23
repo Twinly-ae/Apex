@@ -418,6 +418,7 @@ import type {
   CreateAccountInput,
   CreateBillInput,
   CreatePositionInput,
+  HealthResponse,
   HealthSummary,
   NetWorthResponse,
   SyncResult,
@@ -514,6 +515,14 @@ export function useMetricsSummary() {
   return useQuery({
     queryKey: moneyKeys.metrics,
     queryFn: () => api.get<HealthSummary>("/api/metrics/summary"),
+  });
+}
+
+/* ----- Health scores (sleep / recovery / stress) ----- */
+export function useHealth() {
+  return useQuery({
+    queryKey: ["health"],
+    queryFn: () => api.get<HealthResponse>("/api/health/scores"),
   });
 }
 

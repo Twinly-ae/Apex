@@ -13,6 +13,7 @@ import aiRoutes from "./routes/ai";
 import billRoutes from "./routes/bills";
 import bodyweightRoutes from "./routes/bodyweight";
 import businessRoutes from "./routes/businesses";
+import dayRoutes from "./routes/day";
 import exportRoutes from "./routes/export";
 import goalRoutes from "./routes/goals";
 import habitRoutes from "./routes/habits";
@@ -138,6 +139,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(statusRoutes, { prefix: "/api/status" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(todayRoutes, { prefix: "/api/today" });
+  await app.register(dayRoutes, { prefix: "/api/day" });
 
   // Apple Health ingest — token-protected, NOT behind the session.
   await app.register(ingestRoutes, { prefix: "/api/ingest" });

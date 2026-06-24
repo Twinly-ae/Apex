@@ -32,30 +32,37 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
 
   const steps = task.steps;
   const doneSteps = steps.filter((s) => s.done).length;
+  const hasSteps = steps.length > 0;
   const accent = colorHex(task.color);
   const est = estLabel(task.estMinutes);
 
   return (
     <li
-      className="rounded-2xl border border-line bg-surface p-3"
+      className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
       style={{ borderLeft: `3px solid ${accent}` }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 p-3.5">
         <button
           aria-label={task.done ? "Mark not done" : "Mark done"}
           onClick={() => update.mutate({ id: task.id, input: { done: !task.done } })}
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 transition-colors active:scale-90 ${
             task.done ? "border-good bg-good/20 text-good" : "border-line"
           }`}
         >
-          {task.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+          {task.done && <Check className="h-4 w-4" strokeWidth={3} />}
         </button>
 
-        <div className="min-w-0 flex-1">
-          <div className={task.done ? "text-muted line-through" : "text-text"}>
+        {/* Tappable title area — expands the steps when present */}
+        <button
+          onClick={() => hasSteps && setOpen((o) => !o)}
+          className="min-w-0 flex-1 py-1 text-left"
+        >
+          <div
+            className={`truncate ${task.done ? "text-muted line-through" : "text-text"}`}
+          >
             {task.title}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] ${PRIORITY_PILL[task.priority]}`}
             >
@@ -65,84 +72,84 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
             {task.dueDate && (
               <span>Due {new Date(task.dueDate).toLocaleDateString()}</span>
             )}
-            {steps.length > 0 && (
-              <span className="tabular-nums">
+            {hasSteps && (
+              <span className="inline-flex items-center gap-1 tabular-nums text-accent">
                 {doneSteps}/{steps.length} steps
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+                  strokeWidth={2.5}
+                />
               </span>
             )}
           </div>
-        </div>
+        </button>
 
-        {steps.length > 0 && (
-          <button
-            onClick={() => setOpen((o) => !o)}
-            aria-label="Toggle steps"
-            className="-m-1 p-1 text-muted hover:text-text"
-          >
-            <ChevronDown
-              className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
-              strokeWidth={2}
-            />
-          </button>
-        )}
         <button
           onClick={() => onEdit(task)}
           aria-label="Edit task"
-          className="-m-1 p-1 text-muted hover:text-text"
+          className="-m-1.5 p-1.5 text-muted active:text-text"
         >
           <Pencil className="h-[18px] w-[18px]" strokeWidth={2} />
         </button>
         <button
           onClick={() => del.mutate(task.id)}
           aria-label="Delete task"
-          className="-m-1 p-1 text-muted hover:text-bad"
+          className="-m-1.5 p-1.5 text-muted active:text-bad"
         >
           <Trash2 className="h-[18px] w-[18px]" strokeWidth={2} />
         </button>
       </div>
 
-      {/* Steps — each unlocks only when the ones before it are done */}
-      {open && steps.length > 0 && (
-        <ul className="ml-9 mt-2 space-y-1.5 border-l border-line pl-3">
-          {steps.map((s, i) => {
-            const unlocked = steps.slice(0, i).every((p) => p.done);
-            return (
-              <li key={s.id} className="flex items-center gap-2.5 text-sm">
-                <button
-                  disabled={!unlocked}
-                  onClick={() =>
-                    updateStep.mutate({ id: s.id, input: { done: !s.done } })
-                  }
-                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${
-                    s.done
-                      ? "border-good bg-good/20 text-good"
-                      : unlocked
-                        ? "border-line"
-                        : "border-line/50 text-muted"
-                  }`}
-                  aria-label={unlocked ? "Toggle step" : "Locked"}
-                >
-                  {s.done ? (
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  ) : !unlocked ? (
-                    <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
-                  ) : null}
-                </button>
-                <span
-                  className={
-                    s.done
-                      ? "text-muted line-through"
-                      : unlocked
-                        ? "text-text"
-                        : "text-muted"
-                  }
-                >
-                  {s.title}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+      {/* Steps — smooth height animation; each unlocks in order */}
+      {hasSteps && (
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <ul className="ml-[1.85rem] space-y-2 border-l border-line px-4 pb-3.5 pt-0.5">
+              {steps.map((s, i) => {
+                const unlocked = steps.slice(0, i).every((p) => p.done);
+                return (
+                  <li key={s.id} className="flex items-center gap-2.5 text-sm">
+                    <button
+                      disabled={!unlocked}
+                      onClick={() =>
+                        updateStep.mutate({ id: s.id, input: { done: !s.done } })
+                      }
+                      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors active:scale-90 ${
+                        s.done
+                          ? "border-good bg-good/20 text-good"
+                          : unlocked
+                            ? "border-line"
+                            : "border-line/50 text-muted"
+                      }`}
+                      aria-label={unlocked ? "Toggle step" : "Locked"}
+                    >
+                      {s.done ? (
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      ) : !unlocked ? (
+                        <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
+                      ) : null}
+                    </button>
+                    <span
+                      className={
+                        s.done
+                          ? "text-muted line-through"
+                          : unlocked
+                            ? "text-text"
+                            : "text-muted"
+                      }
+                    >
+                      {s.title}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
       )}
     </li>
   );

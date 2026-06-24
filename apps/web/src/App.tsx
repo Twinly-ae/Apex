@@ -6,6 +6,7 @@ import { Coach } from "./pages/Coach";
 import { Goals } from "./pages/Goals";
 import { Login } from "./pages/Login";
 import { Businesses } from "./pages/Businesses";
+import { Day } from "./pages/Day";
 import { Meals } from "./pages/Meals";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/goals" element={<Goals />} />
         <Route path="/businesses" element={<Businesses />} />
         <Route path="/meals" element={<Meals />} />
+        <Route path="/day" element={<Day />} />
         <Route
           path="/money"
           element={

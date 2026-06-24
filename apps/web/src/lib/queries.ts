@@ -14,6 +14,7 @@ import type {
   CreateTaskInput,
   CreateWaterInput,
   CreateWorkoutInput,
+  DayOverview,
   Goal,
   Habit,
   LoginInput,
@@ -104,6 +105,14 @@ export function useToday() {
     queryKey: keys.today,
     queryFn: () => api.get<TodaySummary>("/api/today"),
     staleTime: 15_000,
+  });
+}
+
+/** A past (or current) day's full overview for the history view. */
+export function useDay(date: string) {
+  return useQuery({
+    queryKey: ["day", date],
+    queryFn: () => api.get<DayOverview>(`/api/day?date=${date}`),
   });
 }
 

@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { HabitsRow } from "../components/HabitsRow";
 import { GoalCard } from "../components/goals/GoalCard";
@@ -17,9 +18,10 @@ export function Goals() {
         <h1 className="text-2xl font-semibold text-text">Goals</h1>
         <button
           onClick={() => setGoalSheet(true)}
-          className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
+          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3.5 py-2 text-sm font-semibold text-white shadow-glow active:scale-[0.99]"
         >
-          + Goal
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          Goal
         </button>
       </header>
 

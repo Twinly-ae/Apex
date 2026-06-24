@@ -1,4 +1,4 @@
-import { Check, RefreshCw, Sparkles } from "lucide-react";
+import { Check, History, RefreshCw, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
@@ -69,13 +69,22 @@ export function Today() {
             {formatDate(`${data.date}T00:00:00`)}
           </p>
         </div>
-        <Link
-          to="/coach"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent active:opacity-80"
-        >
-          <Sparkles className="h-4 w-4" strokeWidth={2} />
-          Coach
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to="/day"
+            aria-label="History"
+            className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-muted active:opacity-80"
+          >
+            <History className="h-[18px] w-[18px]" strokeWidth={2} />
+          </Link>
+          <Link
+            to="/coach"
+            className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent active:opacity-80"
+          >
+            <Sparkles className="h-4 w-4" strokeWidth={2} />
+            Coach
+          </Link>
+        </div>
       </header>
 
       {/* Morning briefing — Claude-written when configured, else rules-based */}

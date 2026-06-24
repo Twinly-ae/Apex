@@ -109,6 +109,19 @@ export interface MealDay {
   meals: Meal[];
 }
 
+/** Everything logged on a given day — powers the history / past-days view. */
+export interface DayOverview {
+  date: string;
+  nutrition: { calories: number; protein: number; carbs: number; fat: number };
+  meals: Meal[];
+  waterMl: number;
+  workouts: Workout[];
+  weightKg: number | null;
+  steps: number | null;
+  activeEnergyKcal: number | null;
+  tasksCompleted: { id: string; title: string }[];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Bodyweight                                                                 */
 /* -------------------------------------------------------------------------- */

@@ -28,6 +28,17 @@ export function localHour(date: Date = new Date()): number {
   return shifted.getUTCHours();
 }
 
+/**
+ * Fraction (0–1) of the current local day that has already elapsed. Used to
+ * accrue resting/maintenance energy as the day passes instead of crediting a
+ * full day's burn at midnight.
+ */
+export function localDayFraction(date: Date = new Date()): number {
+  const { start, end } = dayRange(date);
+  const f = (date.getTime() - start.getTime()) / (end.getTime() - start.getTime());
+  return Math.max(0, Math.min(1, f));
+}
+
 /** Local weekday with Monday = 0 … Sunday = 6 (matches the training split). */
 export function localWeekdayMon0(date: Date = new Date()): number {
   const shifted = new Date(date.getTime() + TZ_OFFSET_MINUTES * 60_000);

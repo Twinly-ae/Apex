@@ -1,6 +1,6 @@
 import { prisma } from "../db";
 import { loadGoals } from "./goals";
-import { healthSummary } from "./health";
+import { computeHealth } from "./health";
 import { loadAccounts, netWorthTotal } from "./money";
 import { dayRange, dayString, localWeekdayMon0 } from "./time";
 
@@ -34,7 +34,7 @@ export async function buildUserContext(userId: string): Promise<string> {
       where: { userId },
       orderBy: { measuredAt: "desc" },
     }),
-    healthSummary(userId),
+    computeHealth(userId),
     prisma.workout.findMany({
       where: { userId, performedAt: { gte: start, lt: end } },
     }),
@@ -87,9 +87,11 @@ export async function buildUserContext(userId: string): Promise<string> {
       : "Targets: not set.",
     `Eaten so far: ${cal} kcal, ${protein}g protein, ${meals.length} meals; water ${waterMl}ml.`,
     `Latest bodyweight: ${latestWeight ? `${latestWeight.weightKg} kg` : "unknown"}.`,
-    health.steps != null || health.activeEnergyKcal != null
-      ? `Apple Health today: ${health.steps ?? "?"} steps, ${health.activeEnergyKcal ?? "?"} kcal active energy, sleep ${health.sleepHours ?? "?"}h.`
-      : "Apple Health: no data today.",
+    health.hasData
+      ? `Apple Health today: ${health.steps ?? "?"} steps, ${health.activeEnergyKcal ?? "?"} kcal active energy, slept ${health.sleepHours ?? "?"}h. ` +
+        `Wellbeing 0–100 (higher better, except stress): sleep ${health.scores.sleep ?? "?"}, recovery ${health.scores.recovery ?? "?"}, stress ${health.scores.stress ?? "?"} ` +
+        `(resting HR ${health.restingHr ?? "?"} vs ${health.hrBaseline ?? "?"} baseline). Factor recovery into today's training advice.`
+      : "Apple Health: nothing synced today (no sleep, recovery, steps, or active energy) — can't assess recovery; remind him to sync his watch.",
     trainingLine,
     `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
     workloadLine,

@@ -390,7 +390,7 @@ export function Today() {
                       ? data.caloriesOut.toLocaleString()
                       : "—"
                   }
-                  sub="maintenance + activity"
+                  sub="so far today"
                 />
                 <StatCard
                   label="Net worth"

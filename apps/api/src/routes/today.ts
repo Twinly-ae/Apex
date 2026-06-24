@@ -9,7 +9,13 @@ import { healthSummary } from "../lib/health";
 import { loadAccounts, netWorthTotal } from "../lib/money";
 import { progress } from "../lib/nutrition";
 import { toTask } from "../lib/serializers";
-import { dayRange, dayString, localHour, localWeekdayMon0 } from "../lib/time";
+import {
+  dayRange,
+  dayString,
+  localDayFraction,
+  localHour,
+  localWeekdayMon0,
+} from "../lib/time";
 import { ensureSettings } from "./settings";
 import { ensureTrainingPlan } from "./training-plan";
 
@@ -140,15 +146,19 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
     );
     const waterMl = waterLogs.reduce((sum, l) => sum + l.amountMl, 0);
 
-    // Energy balance: maintenance is the resting/lifestyle baseline; add today's
+    // Energy balance. "Burned so far" accrues maintenance across the day (you
+    // haven't burned a full day's resting energy at breakfast) and adds today's
     // activity (Apple Health active energy, or ~250 kcal per logged workout when
-    // Health isn't capturing it). The calorie *budget* grows with activity, so
-    // "how much can I still eat" reflects training.
+    // Health isn't capturing it). The calorie *budget* is a full-day allowance
+    // that grows with activity, so "how much can I still eat" reflects training.
     const eaten = Math.round(totals.calories);
     const activeKcal = health.activeEnergyKcal ?? 0;
     const workoutEst = activeKcal > 0 ? 0 : todayWorkoutCount * 250;
     const activity = Math.round(activeKcal + workoutEst);
-    const burned = Math.round(settings.maintenanceCalories + activity);
+    const maintenanceSoFar = Math.round(
+      settings.maintenanceCalories * localDayFraction(),
+    );
+    const burned = maintenanceSoFar + activity;
     const budget = Math.round(settings.calorieTarget + activity);
     const energy = {
       eaten,

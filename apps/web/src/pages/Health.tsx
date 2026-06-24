@@ -167,6 +167,7 @@ export function Health() {
   const delWorkout = useDeleteWorkout();
   const syncHevy = useSyncHevy();
   const [logOpen, setLogOpen] = useState(false);
+  const [view, setView] = useState<"overview" | "charts">("overview");
 
   const latestBw = trends?.bodyweight.at(-1)?.kg ?? null;
   const firstBw = trends?.bodyweight[0]?.kg ?? null;
@@ -187,8 +188,30 @@ export function Health() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold text-text">Health</h1>
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-text">Health</h1>
+        <div className="flex rounded-full border border-line bg-surface p-0.5 text-sm">
+          <button
+            onClick={() => setView("overview")}
+            className={`rounded-full px-3.5 py-1.5 font-medium transition-colors ${
+              view === "overview" ? "bg-accent text-white" : "text-muted"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setView("charts")}
+            className={`rounded-full px-3.5 py-1.5 font-medium transition-colors ${
+              view === "charts" ? "bg-accent text-white" : "text-muted"
+            }`}
+          >
+            Charts
+          </button>
+        </div>
+      </header>
 
+      {view === "overview" && (
+        <>
       {/* Wellbeing rings — sleep / recovery / stress, tap for detail */}
       <Wellbeing health={health} />
 
@@ -238,34 +261,6 @@ export function Health() {
         )}
       </ChartCard>
 
-      {(health?.sleepSeries.length ?? 0) > 1 && (
-        <ChartCard title="Sleep (14d)">
-          <SleepChart data={health?.sleepSeries ?? []} />
-        </ChartCard>
-      )}
-
-      {(health?.rhrSeries.length ?? 0) > 1 && (
-        <ChartCard title="Resting heart rate (14d)">
-          <RestingHrChart data={health?.rhrSeries ?? []} />
-        </ChartCard>
-      )}
-
-      <ChartCard title="Bodyweight">
-        <BodyweightChart data={trends.bodyweight} />
-      </ChartCard>
-
-      <ChartCard title="Calories vs target (14d)">
-        <AdherenceChart data={trends.adherence} />
-      </ChartCard>
-
-      <ChartCard title="Calories in vs out (14d)">
-        <EnergyChart data={health?.energySeries ?? []} />
-      </ChartCard>
-
-      <ChartCard title="Training volume / week">
-        <TrainingChart data={trends.training} />
-      </ChartCard>
-
       <ChartCard title="Weekly split">
         <TrainingPlanEditor />
       </ChartCard>
@@ -310,6 +305,48 @@ export function Health() {
           </ul>
         )}
       </section>
+        </>
+      )}
+
+      {view === "charts" && (
+        <>
+          <ChartCard title="Bodyweight">
+            <BodyweightChart data={trends.bodyweight} />
+          </ChartCard>
+
+          {(health?.sleepSeries.length ?? 0) > 1 && (
+            <ChartCard title="Sleep (14d)">
+              <SleepChart data={health?.sleepSeries ?? []} />
+            </ChartCard>
+          )}
+
+          {(health?.rhrSeries.length ?? 0) > 1 && (
+            <ChartCard title="Resting heart rate (14d)">
+              <RestingHrChart data={health?.rhrSeries ?? []} />
+            </ChartCard>
+          )}
+
+          <ChartCard title="Calories vs target (14d)">
+            <AdherenceChart data={trends.adherence} />
+          </ChartCard>
+
+          <ChartCard title="Calories in vs out (14d)">
+            <EnergyChart data={health?.energySeries ?? []} />
+          </ChartCard>
+
+          <ChartCard title="Training volume / week">
+            <TrainingChart data={trends.training} />
+          </ChartCard>
+
+          {(health?.sleepSeries.length ?? 0) <= 1 &&
+            (health?.rhrSeries.length ?? 0) <= 1 && (
+              <p className="px-1 text-xs text-muted">
+                Sleep and resting-HR charts appear once Apple Health has a few
+                days of data.
+              </p>
+            )}
+        </>
+      )}
 
       <WorkoutSheet open={logOpen} onClose={() => setLogOpen(false)} />
     </div>

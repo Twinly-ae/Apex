@@ -4,6 +4,7 @@ import {
   History,
   RefreshCw,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -186,41 +187,52 @@ export function Today() {
         <p className="text-sm leading-relaxed text-text">{data.briefing}</p>
       </section>
 
-      {/* Today's focus — next step from the most urgent goal */}
-      {data.todaysFocus && (
-        <section className="rounded-2xl border border-accent/40 bg-accent/10 p-4">
-          <div className={LABEL.replace("text-muted", "text-accent")}>
-            Today's focus
-          </div>
-          <p className="mt-1 text-text">{data.todaysFocus}</p>
-        </section>
-      )}
-
-      {/* Day plan — Claude time-blocks the day around tasks, training, goals */}
-      {aiOn && (
+      {/* Today's plan — focus (the "why") sits atop Claude's time-blocks (the "when") */}
+      {(aiOn || data.todaysFocus) && (
         <section className="rounded-2xl border border-line bg-surface p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <span className={LABEL}>Day plan</span>
-            <button
-              onClick={() => genPlan.mutate(undefined)}
-              disabled={genPlan.isPending}
-              className="text-xs text-accent active:opacity-70 disabled:opacity-50"
-            >
-              {genPlan.isPending
-                ? "Planning…"
-                : plan.data?.text
-                  ? "Re-plan"
-                  : "Plan my day"}
-            </button>
+          <div className="mb-3 flex items-center justify-between">
+            <span className={LABEL}>{aiOn ? "Day plan" : "Today's focus"}</span>
+            {aiOn && (
+              <button
+                onClick={() => genPlan.mutate(undefined)}
+                disabled={genPlan.isPending}
+                className="text-xs text-accent active:opacity-70 disabled:opacity-50"
+              >
+                {genPlan.isPending
+                  ? "Planning…"
+                  : plan.data?.text
+                    ? "Re-plan"
+                    : "Plan my day"}
+              </button>
+            )}
           </div>
-          {plan.data?.text ? (
-            <DayPlanBlocks text={plan.data.text} />
-          ) : (
-            <p className="text-sm text-muted">
-              Let Claude block out your day around your tasks, training, and
-              goals.
-            </p>
+
+          {data.todaysFocus && (
+            <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-accent/40 bg-accent/10 p-3">
+              <Target
+                className="mt-0.5 h-4 w-4 shrink-0 text-accent"
+                strokeWidth={2.5}
+              />
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+                  Today's focus
+                </div>
+                <p className="mt-0.5 text-sm leading-relaxed text-text">
+                  {data.todaysFocus}
+                </p>
+              </div>
+            </div>
           )}
+
+          {aiOn &&
+            (plan.data?.text ? (
+              <DayPlanBlocks text={plan.data.text} />
+            ) : (
+              <p className="text-sm text-muted">
+                Let Claude block out your day around your focus, tasks, training,
+                and goals.
+              </p>
+            ))}
         </section>
       )}
 

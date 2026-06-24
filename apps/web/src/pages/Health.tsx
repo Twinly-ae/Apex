@@ -11,6 +11,7 @@ import {
 } from "../components/Charts";
 import { StatCard } from "../components/StatCard";
 import { TrainingPlanEditor } from "../components/TrainingPlanEditor";
+import { Wellbeing } from "../components/health/Wellbeing";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { kg } from "../lib/format";
 import {
@@ -31,55 +32,6 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
       </h2>
       {children}
     </section>
-  );
-}
-
-/** A circular 0–100 gauge. Stress is inverted (high = bad). */
-function ScoreRing({
-  label,
-  value,
-  invert,
-}: {
-  label: string;
-  value: number | null;
-  invert?: boolean;
-}) {
-  const v = value ?? 0;
-  const r = 30;
-  const circ = 2 * Math.PI * r;
-  const dash = (Math.max(0, Math.min(100, v)) / 100) * circ;
-  const good = invert ? v <= 33 : v >= 75;
-  const bad = invert ? v >= 67 : v < 50;
-  const color =
-    value == null ? "#3a3a48" : good ? "#34d399" : bad ? "#fb7185" : "#fbbf24";
-  return (
-    <div className="flex flex-col items-center">
-      <svg width="84" height="84" viewBox="0 0 84 84">
-        <circle cx="42" cy="42" r={r} fill="none" stroke="#2a2a3a" strokeWidth="7" />
-        <circle
-          cx="42"
-          cy="42"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="7"
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${circ}`}
-          transform="rotate(-90 42 42)"
-        />
-        <text
-          x="42"
-          y="48"
-          textAnchor="middle"
-          fontSize="20"
-          fontWeight="600"
-          fill="#ececf1"
-        >
-          {value == null ? "—" : v}
-        </text>
-      </svg>
-      <span className="mt-1 text-xs text-muted">{label}</span>
-    </div>
   );
 }
 
@@ -164,34 +116,6 @@ function WorkoutRow({ w, onDelete }: { w: Workout; onDelete: () => void }) {
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  detail,
-  invert,
-}: {
-  label: string;
-  value: number | null;
-  detail: string;
-  invert?: boolean;
-}) {
-  const v = value ?? 0;
-  const good = invert ? v <= 33 : v >= 75;
-  const bad = invert ? v >= 67 : v < 50;
-  const cls =
-    value == null ? "text-muted" : good ? "text-good" : bad ? "text-bad" : "text-warn";
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-text">
-        {label} <span className="text-xs text-muted">· {detail}</span>
-      </span>
-      <span className={`font-semibold tabular-nums ${cls}`}>
-        {value == null ? "—" : value}
-      </span>
-    </div>
-  );
-}
-
 function HealthTips() {
   const tips = useHealthTips();
   const gen = useGenerateHealthTips();
@@ -264,70 +188,8 @@ export function Health() {
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold text-text">Health</h1>
 
-      {/* Recovery scores */}
-      <section className="rounded-2xl border border-line bg-gradient-to-br from-surface to-surface-2 p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted">
-          Recovery today
-        </h2>
-        {health?.hasData ? (
-          <>
-            <div className="grid grid-cols-3 gap-2">
-              <ScoreRing label="Sleep" value={health.scores.sleep} />
-              <ScoreRing label="Recovery" value={health.scores.recovery} />
-              <ScoreRing label="Stress" value={health.scores.stress} invert />
-            </div>
-            <div className="mt-3 space-y-1.5 border-t border-line pt-3">
-              <DetailRow
-                label="Sleep"
-                value={health.scores.sleep}
-                detail={
-                  health.sleepHours != null
-                    ? `${health.sleepHours}h · target 8h`
-                    : "no sleep data yet"
-                }
-              />
-              <DetailRow
-                label="Recovery"
-                value={health.scores.recovery}
-                detail={
-                  health.restingHr != null
-                    ? `resting HR ${health.restingHr} vs ${
-                        health.hrBaseline ?? "—"
-                      } baseline`
-                    : "needs resting heart rate"
-                }
-              />
-              <DetailRow
-                label="Stress"
-                value={health.scores.stress}
-                invert
-                detail="from resting-HR rise + sleep debt"
-              />
-            </div>
-            {health.weekly.nights > 0 && (
-              <p className="mt-2 text-center text-xs text-muted">
-                7-day avg · sleep{" "}
-                <span className="text-text">
-                  {health.weekly.avgSleepHours ?? "—"}h
-                </span>{" "}
-                · recovery{" "}
-                <span className="text-text">
-                  {health.weekly.avgRecovery ?? "—"}
-                </span>{" "}
-                · resting HR{" "}
-                <span className="text-text">
-                  {health.weekly.avgRestingHr ?? "—"}
-                </span>
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-muted">
-            Connect Apple Health (Settings → Apple Health) to see sleep, recovery,
-            and stress scores.
-          </p>
-        )}
-      </section>
+      {/* Wellbeing rings — sleep / recovery / stress, tap for detail */}
+      <Wellbeing health={health} />
 
       <HealthTips />
 

@@ -459,6 +459,7 @@ import type {
   CreateBillInput,
   CreatePositionInput,
   HealthResponse,
+  HealthSyncStatus,
   HealthSummary,
   NetWorthResponse,
   SyncResult,
@@ -563,6 +564,13 @@ export function useHealth() {
   return useQuery({
     queryKey: ["health"],
     queryFn: () => api.get<HealthResponse>("/api/health/scores"),
+  });
+}
+
+export function useHealthSync() {
+  return useQuery({
+    queryKey: ["health-sync"],
+    queryFn: () => api.get<HealthSyncStatus>("/api/health/sync"),
   });
 }
 

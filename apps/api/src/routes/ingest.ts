@@ -17,9 +17,17 @@ const NAME_MAP: Record<string, string> = {
 
 interface HaePoint {
   date?: string;
-  qty?: number;
-  asleep?: number; // some HAE versions report sleep seconds here
-  value?: number;
+  qty?: number | string;
+  value?: number | string;
+  Avg?: number | string; // HAE heart-rate points use Avg/Min/Max
+  asleep?: number | string;
+  totalSleep?: number | string;
+  inBed?: number | string;
+  sleepStart?: string;
+  sleepEnd?: string;
+  core?: number | string; // detailed-sleep stage hours
+  deep?: number | string;
+  rem?: number | string;
 }
 interface HaeMetric {
   name?: string;
@@ -37,13 +45,46 @@ function parseHaeDate(s: string | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function pointValue(type: string, p: HaePoint): number | null {
-  if (typeof p.qty === "number") return p.qty;
-  if (typeof p.value === "number") return p.value;
-  if (type === "sleep_hours" && typeof p.asleep === "number") {
-    return p.asleep / 3600;
+function num(x: unknown): number | null {
+  if (typeof x === "number") return Number.isFinite(x) ? x : null;
+  if (typeof x === "string" && x.trim() !== "") {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
   }
   return null;
+}
+
+/** Coerce a raw sleep figure to hours (HAE reports hours, minutes, or seconds). */
+function toHours(raw: number): number {
+  if (raw > 1000) return raw / 3600; // seconds
+  if (raw > 24) return raw / 60; // minutes
+  return raw; // already hours
+}
+
+/** Robustly pull a night's asleep hours from the many HAE sleep shapes. */
+function sleepHoursFromPoint(p: HaePoint): number | null {
+  const direct = num(p.totalSleep) ?? num(p.asleep);
+  if (direct != null && direct > 0) return toHours(direct);
+
+  const stages = [num(p.core), num(p.deep), num(p.rem)].filter(
+    (n): n is number => n != null,
+  );
+  if (stages.length) return toHours(stages.reduce((s, n) => s + n, 0));
+
+  const q = num(p.qty) ?? num(p.value);
+  if (q != null && q > 0) return toHours(q);
+
+  const start = parseHaeDate(p.sleepStart);
+  const end = parseHaeDate(p.sleepEnd);
+  if (start && end && end > start) {
+    return (end.getTime() - start.getTime()) / 3_600_000;
+  }
+  return null;
+}
+
+function pointValue(type: string, p: HaePoint): number | null {
+  if (type === "sleep_hours") return sleepHoursFromPoint(p);
+  return num(p.qty) ?? num(p.value) ?? num(p.Avg);
 }
 
 export default async function ingestRoutes(

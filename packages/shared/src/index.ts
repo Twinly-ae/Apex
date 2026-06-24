@@ -641,6 +641,27 @@ export interface HealthResponse {
   hasData: boolean;
 }
 
+/** One ingested metric type's freshness, for the sync diagnostic. */
+export interface HealthMetricStatus {
+  type: string;
+  /** ISO timestamp of the most recent reading of this type, or null. */
+  lastAt: string | null;
+  /** Whether a reading of this type exists for today. */
+  today: boolean;
+}
+
+/** Diagnostic for the Apple Health bridge: is the token set and is data arriving? */
+export interface HealthSyncStatus {
+  /** HEALTH_INGEST_TOKEN is set on the API. */
+  configured: boolean;
+  /** Most recent time ANY metric was written (the last successful sync). */
+  lastSyncAt: string | null;
+  /** Total metric rows stored. */
+  total: number;
+  /** Freshness of the metrics that drive the scores. */
+  metrics: HealthMetricStatus[];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Twinly expenses (cached from Notion)                                       */
 /* -------------------------------------------------------------------------- */

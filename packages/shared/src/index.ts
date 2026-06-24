@@ -208,17 +208,23 @@ export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
 export const createTaskStepSchema = z.object({
   title: z.string().min(1).max(200),
+  estMinutes: z.number().int().min(0).max(1440).nullable().optional(),
 });
 export type CreateTaskStepInput = z.infer<typeof createTaskStepSchema>;
 
 export const updateTaskStepSchema = z
-  .object({ title: z.string().min(1).max(200), done: z.boolean() })
+  .object({
+    title: z.string().min(1).max(200),
+    done: z.boolean(),
+    estMinutes: z.number().int().min(0).max(1440).nullable(),
+  })
   .partial();
 export type UpdateTaskStepInput = z.infer<typeof updateTaskStepSchema>;
 
 export interface TaskStep {
   id: string;
   title: string;
+  estMinutes: number | null;
   order: number;
   done: boolean;
   doneAt: string | null;

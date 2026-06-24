@@ -123,7 +123,12 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
     }
     const count = await prisma.taskStep.count({ where: { taskId: task.id } });
     await prisma.taskStep.create({
-      data: { taskId: task.id, title: body.title, order: count },
+      data: {
+        taskId: task.id,
+        title: body.title,
+        estMinutes: body.estMinutes ?? null,
+        order: count,
+      },
     });
     reply.code(201);
     return taskWithSteps(task.id);
@@ -145,6 +150,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
       where: { id: step.id },
       data: {
         title: body.title ?? undefined,
+        estMinutes: body.estMinutes === undefined ? undefined : body.estMinutes,
         done: body.done ?? undefined,
         doneAt:
           body.done === undefined ? undefined : body.done ? new Date() : null,

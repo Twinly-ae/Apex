@@ -144,6 +144,11 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
                     >
                       {s.title}
                     </span>
+                    {estLabel(s.estMinutes) && (
+                      <span className="ml-auto shrink-0 text-xs tabular-nums text-muted">
+                        {estLabel(s.estMinutes)?.replace("est. ", "")}
+                      </span>
+                    )}
                   </li>
                 );
               })}

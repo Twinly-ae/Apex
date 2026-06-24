@@ -62,6 +62,7 @@ export function toTask(t: DbTask & { steps?: DbTaskStep[] }): Task {
       .map((s) => ({
         id: s.id,
         title: s.title,
+        estMinutes: s.estMinutes,
         order: s.order,
         done: s.done,
         doneAt: s.doneAt ? s.doneAt.toISOString() : null,

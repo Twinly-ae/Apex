@@ -266,8 +266,16 @@ function useTaskStepMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
   });
 }
 export const useAddTaskStep = () =>
-  useTaskStepMutation(({ taskId, title }: { taskId: string; title: string }) =>
-    api.post<Task>(`/api/tasks/${taskId}/steps`, { title }),
+  useTaskStepMutation(
+    ({
+      taskId,
+      title,
+      estMinutes,
+    }: {
+      taskId: string;
+      title: string;
+      estMinutes?: number | null;
+    }) => api.post<Task>(`/api/tasks/${taskId}/steps`, { title, estMinutes }),
   );
 export const useUpdateTaskStep = () =>
   useTaskStepMutation(

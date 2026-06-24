@@ -126,12 +126,13 @@ model Task {
 model TaskStep {
   id        String    @id @default(cuid())
   taskId    String
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  title     String
-  order     Int       @default(0)
-  done      Boolean   @default(false)
-  doneAt    DateTime?
-  createdAt DateTime  @default(now())
+  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title      String
+  estMinutes Int? // estimated duration for this step
+  order      Int       @default(0)
+  done       Boolean   @default(false)
+  doneAt     DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([taskId])
 }

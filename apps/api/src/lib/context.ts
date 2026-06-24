@@ -63,7 +63,11 @@ export async function buildUserContext(userId: string): Promise<string> {
         if (t.estMinutes) totalEstMin += t.estMinutes;
         const est = t.estMinutes ? ` ~${t.estMinutes}m` : "";
         const nextStep = t.steps.find((s) => !s.done);
-        const step = nextStep ? ` (next step: ${nextStep.title})` : "";
+        const step = nextStep
+          ? ` (next step: ${nextStep.title}${
+              nextStep.estMinutes ? ` ~${nextStep.estMinutes}m` : ""
+            })`
+          : "";
         let due = "";
         if (t.dueDate) {
           const d = dayString(t.dueDate);

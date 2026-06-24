@@ -6,6 +6,7 @@ import {
   useAddTaskStep,
   useDeleteTaskStep,
   useUpdateTask,
+  useUpdateTaskStep,
 } from "../../lib/queries";
 import { TASK_COLORS, colorHex } from "../../lib/taskColors";
 import { Sheet, inputClass, primaryButtonClass, selectClass } from "../ui/Sheet";
@@ -31,6 +32,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
   const add = useAddTask();
   const update = useUpdateTask();
   const addStep = useAddTaskStep();
+  const updateStep = useUpdateTaskStep();
   const delStep = useDeleteTaskStep();
   const editing = Boolean(task);
 
@@ -41,6 +43,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
   const [est, setEst] = useState("");
   const [notes, setNotes] = useState("");
   const [newStep, setNewStep] = useState("");
+  const [newStepEst, setNewStepEst] = useState("");
 
   // Populate when opening an existing task (or reset for a new one).
   useEffect(() => {
@@ -52,9 +55,21 @@ export function TaskSheet({ open, onClose, task }: Props) {
     setEst(task?.estMinutes ? String(task.estMinutes) : "");
     setNotes(task?.notes ?? "");
     setNewStep("");
+    setNewStepEst("");
   }, [open, task]);
 
   const busy = add.isPending || update.isPending;
+
+  function addCurrentStep() {
+    if (!task || !newStep.trim()) return;
+    addStep.mutate({
+      taskId: task.id,
+      title: newStep.trim(),
+      estMinutes: newStepEst ? Math.round(Number(newStepEst)) : null,
+    });
+    setNewStep("");
+    setNewStepEst("");
+  }
 
   async function submit() {
     if (!title.trim()) return;
@@ -176,6 +191,22 @@ export function TaskSheet({ open, onClose, task }: Props) {
                     >
                       {s.title}
                     </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      defaultValue={s.estMinutes ?? ""}
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim();
+                        const v = raw ? Math.round(Number(raw)) : null;
+                        if (v !== (s.estMinutes ?? null)) {
+                          updateStep.mutate({ id: s.id, input: { estMinutes: v } });
+                        }
+                      }}
+                      placeholder="min"
+                      aria-label="Step estimate (minutes)"
+                      className="w-14 shrink-0 rounded-lg border border-line bg-surface px-2 py-1 text-center text-xs text-text outline-none focus:border-accent"
+                    />
                     <button
                       onClick={() => delStep.mutate(s.id)}
                       className="text-muted hover:text-bad"
@@ -192,21 +223,26 @@ export function TaskSheet({ open, onClose, task }: Props) {
                 value={newStep}
                 onChange={(e) => setNewStep(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && newStep.trim()) {
-                    addStep.mutate({ taskId: task.id, title: newStep.trim() });
-                    setNewStep("");
-                  }
+                  if (e.key === "Enter") addCurrentStep();
                 }}
                 placeholder="Add a step…"
                 className={inputClass}
               />
-              <button
-                onClick={() => {
-                  if (newStep.trim()) {
-                    addStep.mutate({ taskId: task.id, title: newStep.trim() });
-                    setNewStep("");
-                  }
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={newStepEst}
+                onChange={(e) => setNewStepEst(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addCurrentStep();
                 }}
+                placeholder="min"
+                aria-label="Step estimate (minutes)"
+                className="w-16 shrink-0 rounded-xl border border-line bg-surface-2 px-2 text-center text-text outline-none focus:border-accent"
+              />
+              <button
+                onClick={addCurrentStep}
                 disabled={!newStep.trim() || addStep.isPending}
                 className="shrink-0 rounded-xl bg-surface-2 px-3 text-accent active:opacity-80 disabled:opacity-50"
                 aria-label="Add step"

@@ -61,7 +61,7 @@ export async function generatePlan(
     await setArtifact(userId, "commitments", "default", commitments.trim());
   }
   const text = await runText({
-    system: `${PERSONA} Build a realistic time-blocked plan for TODAY that maximises his time: schedule fixed commitments first, protect his training session and study, then fill free slots with the highest-leverage open tasks and goal next-steps. Output ONLY a schedule, one block per line like "07:00–08:00 — <thing>". Keep it to today.`,
+    system: `${PERSONA} Build a realistic time-blocked plan for TODAY that maximises his time. Rules: (1) Schedule fixed commitments first. (2) If the "Training today" line names a split (Push/Pull/Legs/Upper/Lower) and it is NOT already logged, you MUST place a ~60–75min gym block for that exact split today — name it (e.g. "Pull session"); if it says REST, do not add a workout. (3) Size each task block to its "~Nm" estimate when given (a ~30m task gets a 30-minute block, not an hour); honour priority order (lower number = higher priority; [P1] first) and use the task's next sub-step as the block label when present. (4) Fill remaining slots with goal next-steps. Output ONLY a schedule, one block per line like "07:00–08:00 — <thing>". Keep it to today.`,
     messages: [
       {
         role: "user",

@@ -2,32 +2,67 @@ import { prisma } from "../db";
 import { loadGoals } from "./goals";
 import { healthSummary } from "./health";
 import { loadAccounts, netWorthTotal } from "./money";
-import { dayRange, dayString } from "./time";
+import { dayRange, dayString, localWeekdayMon0 } from "./time";
 
 /** A compact, plain-text snapshot of the user's day for the AI to reason over. */
 export async function buildUserContext(userId: string): Promise<string> {
   const { start, end } = dayRange();
-  const [settings, meals, water, openTasks, goals, accounts, latestWeight, health, plannedWorkouts] =
-    await Promise.all([
-      prisma.settings.findUnique({ where: { userId } }),
-      prisma.meal.findMany({ where: { userId, eatenAt: { gte: start, lt: end } } }),
-      prisma.waterLog.findMany({ where: { userId, loggedAt: { gte: start, lt: end } } }),
-      prisma.task.findMany({
-        where: { userId, done: false },
-        orderBy: [{ priority: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-        take: 12,
-      }),
-      loadGoals(userId),
-      loadAccounts(userId),
-      prisma.bodyweightEntry.findFirst({
-        where: { userId },
-        orderBy: { measuredAt: "desc" },
-      }),
-      healthSummary(userId),
-      prisma.workout.findMany({
-        where: { userId, performedAt: { gte: start, lt: end } },
-      }),
-    ]);
+  const [
+    settings,
+    meals,
+    water,
+    openTasks,
+    goals,
+    accounts,
+    latestWeight,
+    health,
+    plannedWorkouts,
+    trainingPlan,
+  ] = await Promise.all([
+    prisma.settings.findUnique({ where: { userId } }),
+    prisma.meal.findMany({ where: { userId, eatenAt: { gte: start, lt: end } } }),
+    prisma.waterLog.findMany({ where: { userId, loggedAt: { gte: start, lt: end } } }),
+    prisma.task.findMany({
+      where: { userId, done: false },
+      orderBy: [{ priority: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
+      include: { steps: { orderBy: { order: "asc" } } },
+      take: 12,
+    }),
+    loadGoals(userId),
+    loadAccounts(userId),
+    prisma.bodyweightEntry.findFirst({
+      where: { userId },
+      orderBy: { measuredAt: "desc" },
+    }),
+    healthSummary(userId),
+    prisma.workout.findMany({
+      where: { userId, performedAt: { gte: start, lt: end } },
+    }),
+    prisma.trainingPlan.findUnique({ where: { userId } }),
+  ]);
+
+  // Today's planned training split + whether it's been done.
+  const todayLabel = trainingPlan?.days?.[localWeekdayMon0()]?.trim();
+  const isRestDay = !todayLabel || /^rest$/i.test(todayLabel);
+  const workoutDone = plannedWorkouts.length > 0;
+  const trainingLine = isRestDay
+    ? "Training today: REST day (no gym session planned)."
+    : `Training today: ${todayLabel} day — ${
+        workoutDone
+          ? "already logged ✓"
+          : "NOT done yet; block a ~60–75min gym session"
+      }.`;
+
+  // Open tasks with priority, estimate, and any next sub-step (for time-blocking).
+  const tasksLine =
+    openTasks
+      .map((t) => {
+        const est = t.estMinutes ? ` ~${t.estMinutes}m` : "";
+        const nextStep = t.steps.find((s) => !s.done);
+        const step = nextStep ? ` (next step: ${nextStep.title})` : "";
+        return `[P${t.priority}]${est} ${t.title}${step}`;
+      })
+      .join("; ") || "none";
 
   const cal = Math.round(meals.reduce((s, m) => s + m.calories, 0));
   const protein = Math.round(meals.reduce((s, m) => s + m.protein, 0));
@@ -43,8 +78,8 @@ export async function buildUserContext(userId: string): Promise<string> {
     health.steps != null || health.activeEnergyKcal != null
       ? `Apple Health today: ${health.steps ?? "?"} steps, ${health.activeEnergyKcal ?? "?"} kcal active energy, sleep ${health.sleepHours ?? "?"}h.`
       : "Apple Health: no data today.",
-    `Workouts logged today: ${plannedWorkouts.map((w) => w.title).join(", ") || "none"}.`,
-    `Open tasks (${openTasks.length}): ${openTasks.map((t) => t.title).join("; ") || "none"}.`,
+    trainingLine,
+    `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
     `Active goals: ${
       goals
         .filter((g) => g.status === "active")

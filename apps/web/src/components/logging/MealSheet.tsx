@@ -1,4 +1,4 @@
-import { Barcode, Camera } from "lucide-react";
+import { Barcode, Camera, ImagePlus } from "lucide-react";
 import { useState } from "react";
 import type { MealEstimate, MealSource } from "@apex/shared";
 import {
@@ -192,17 +192,29 @@ export function MealSheet({ open, onClose }: Props) {
           </div>
         )}
         {mode === "photo" && (
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface-2 py-6 text-sm text-muted">
-            <Camera className="h-5 w-5" strokeWidth={2} />
-            {busy ? "Analyzing photo…" : "Tap to take / choose a photo"}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => onPhoto(e.target.files?.[0])}
-            />
-          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line bg-surface-2 py-6 text-sm text-muted active:opacity-80">
+              <Camera className="h-5 w-5 text-accent" strokeWidth={2} />
+              {busy ? "Analyzing…" : "Take photo"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => onPhoto(e.target.files?.[0])}
+              />
+            </label>
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line bg-surface-2 py-6 text-sm text-muted active:opacity-80">
+              <ImagePlus className="h-5 w-5 text-accent" strokeWidth={2} />
+              {busy ? "Analyzing…" : "Choose photo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onPhoto(e.target.files?.[0])}
+              />
+            </label>
+          </div>
         )}
         {mode === "barcode" && (
           <div className="space-y-2">

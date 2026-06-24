@@ -119,6 +119,10 @@ export interface DayOverview {
   weightKg: number | null;
   steps: number | null;
   activeEnergyKcal: number | null;
+  /** That day's sleep, resting HR, and 0–100 wellbeing scores. */
+  sleepHours: number | null;
+  restingHr: number | null;
+  scores: HealthScores;
   tasksCompleted: { id: string; title: string }[];
 }
 

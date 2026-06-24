@@ -53,16 +53,28 @@ export async function buildUserContext(userId: string): Promise<string> {
           : "NOT done yet; block a ~60–75min gym session"
       }.`;
 
-  // Open tasks with priority, estimate, and any next sub-step (for time-blocking).
+  // Open tasks with priority, estimate, due-date urgency, and any next sub-step
+  // (everything the planner needs to time-block the day around real tasks).
+  const today = dayString();
+  let totalEstMin = 0;
   const tasksLine =
     openTasks
       .map((t) => {
+        if (t.estMinutes) totalEstMin += t.estMinutes;
         const est = t.estMinutes ? ` ~${t.estMinutes}m` : "";
         const nextStep = t.steps.find((s) => !s.done);
         const step = nextStep ? ` (next step: ${nextStep.title})` : "";
-        return `[P${t.priority}]${est} ${t.title}${step}`;
+        let due = "";
+        if (t.dueDate) {
+          const d = dayString(t.dueDate);
+          due = d < today ? " [OVERDUE]" : d === today ? " [due today]" : ` [due ${d}]`;
+        }
+        return `[P${t.priority}]${est} ${t.title}${step}${due}`;
       })
       .join("; ") || "none";
+  const workloadLine = totalEstMin
+    ? `Estimated open-task workload: ~${Math.round((totalEstMin / 60) * 10) / 10}h total.`
+    : "Estimated open-task workload: not estimated.";
 
   const cal = Math.round(meals.reduce((s, m) => s + m.calories, 0));
   const protein = Math.round(meals.reduce((s, m) => s + m.protein, 0));
@@ -80,6 +92,7 @@ export async function buildUserContext(userId: string): Promise<string> {
       : "Apple Health: no data today.",
     trainingLine,
     `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
+    workloadLine,
     `Active goals: ${
       goals
         .filter((g) => g.status === "active")

@@ -42,6 +42,34 @@ function time(iso: string): string {
   });
 }
 
+function scoreColor(value: number | null, goodIsHigh: boolean): string {
+  if (value == null) return "text-muted";
+  if (goodIsHigh ? value >= 70 : value <= 33) return "text-good";
+  if (goodIsHigh ? value >= 40 : value <= 66) return "text-warn";
+  return "text-bad";
+}
+
+function ScoreTile({
+  label,
+  value,
+  goodIsHigh,
+}: {
+  label: string;
+  value: number | null;
+  goodIsHigh: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-surface-2 p-3">
+      <div
+        className={`text-2xl font-bold tabular-nums ${scoreColor(value, goodIsHigh)}`}
+      >
+        {value ?? "—"}
+      </div>
+      <div className="mt-0.5 text-[11px] text-muted">{label}</div>
+    </div>
+  );
+}
+
 function Section({
   title,
   children,
@@ -165,6 +193,51 @@ export function Day() {
                   </li>
                 ))}
               </ul>
+            )}
+          </Section>
+
+          {/* Sleep & recovery */}
+          <Section title="Sleep & recovery">
+            {data.scores.sleep == null &&
+            data.scores.recovery == null &&
+            data.scores.stress == null &&
+            data.sleepHours == null &&
+            data.restingHr == null ? (
+              <p className="text-sm text-muted">No health data that day.</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <ScoreTile
+                    label="Sleep"
+                    value={data.scores.sleep}
+                    goodIsHigh
+                  />
+                  <ScoreTile
+                    label="Recovery"
+                    value={data.scores.recovery}
+                    goodIsHigh
+                  />
+                  <ScoreTile
+                    label="Stress"
+                    value={data.scores.stress}
+                    goodIsHigh={false}
+                  />
+                </div>
+                <div className="mt-3 flex justify-center gap-8 text-xs text-muted">
+                  <span>
+                    Slept{" "}
+                    <span className="font-semibold text-text">
+                      {data.sleepHours != null ? `${data.sleepHours}h` : "—"}
+                    </span>
+                  </span>
+                  <span>
+                    Resting HR{" "}
+                    <span className="font-semibold text-text">
+                      {data.restingHr != null ? `${data.restingHr} bpm` : "—"}
+                    </span>
+                  </span>
+                </div>
+              </>
             )}
           </Section>
 

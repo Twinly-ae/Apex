@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { type DayOverview, dayStringSchema } from "@apex/shared";
 import { prisma } from "../db";
-import { healthSummary } from "../lib/health";
+import { computeHealth } from "../lib/health";
 import { toMeal } from "../lib/serializers";
 import { dayString, rangeForDayString } from "../lib/time";
 
@@ -40,7 +40,7 @@ export default async function dayRoutes(app: FastifyInstance): Promise<void> {
           select: { id: true, title: true },
           orderBy: { doneAt: "asc" },
         }),
-        healthSummary(userId, date),
+        computeHealth(userId, date),
       ]);
 
     const nutrition = meals.reduce(
@@ -75,6 +75,9 @@ export default async function dayRoutes(app: FastifyInstance): Promise<void> {
       weightKg: weight ? weight.weightKg : null,
       steps: health.steps,
       activeEnergyKcal: health.activeEnergyKcal,
+      sleepHours: health.sleepHours,
+      restingHr: health.restingHr,
+      scores: health.scores,
       tasksCompleted: tasksDone.map((t) => ({ id: t.id, title: t.title })),
     };
   });

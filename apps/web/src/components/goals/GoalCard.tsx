@@ -30,6 +30,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
   const days = goal.pace.daysRemaining;
   const ms = goal.milestones;
   const msDone = ms.filter((m) => m.done).length;
+  const msPct = ms.length ? Math.round((msDone / ms.length) * 100) : 0;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
@@ -40,7 +41,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
             <p className="mt-0.5 text-xs text-muted">
               {goal.category} ·{" "}
               {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
-              {ms.length > 0 && ` · ${msDone}/${ms.length} milestones`}
+              {ms.length > 0 && ` · ${msDone}/${ms.length} milestones (${msPct}%)`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -85,6 +86,22 @@ export function GoalCard({ goal }: { goal: Goal }) {
       >
         <div className="overflow-hidden">
           <div className="border-t border-line px-4 pb-4 pt-3">
+            {ms.length > 0 && (
+              <div className="mb-3">
+                <div className="mb-1 flex items-center justify-between text-xs">
+                  <span className="text-muted">Milestones done</span>
+                  <span className="font-semibold tabular-nums text-text">
+                    {msDone}/{ms.length} · {msPct}%
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className="h-full rounded-full bg-good transition-all"
+                    style={{ width: `${msPct}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {ms.length > 0 && (
               <ul className="space-y-1.5">
                 {ms.map((m) => (

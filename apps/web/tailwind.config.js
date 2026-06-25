@@ -29,12 +29,18 @@ export default {
       },
       fontFamily: {
         sans: [
+          "Manrope Variable",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "Roboto",
-          "Helvetica",
-          "Arial",
+          "sans-serif",
+        ],
+        // Distinctive, sporty numerals for the big HUD figures.
+        display: [
+          "Space Grotesk Variable",
+          "Manrope Variable",
+          "ui-sans-serif",
           "sans-serif",
         ],
       },

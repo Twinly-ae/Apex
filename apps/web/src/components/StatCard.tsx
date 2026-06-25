@@ -25,7 +25,7 @@ export function StatCard({ label, value, sub, soon }: StatCardProps) {
           </span>
         )}
       </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums text-text">
+      <div className="mt-2 font-display text-2xl font-semibold tabular-nums text-text">
         {value}
       </div>
       {sub && <div className="mt-1 text-xs text-muted">{sub}</div>}

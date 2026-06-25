@@ -94,10 +94,10 @@ function detailFor(
     ],
     coaching:
       b === "good"
-        ? "Stress is low — your body is in a good place. Keep the routine going."
+        ? "Strain is low — a light day. A good time to train or push if you have the energy."
         : b === "mid"
-          ? "Moderate stress, usually from an elevated resting HR or a little sleep debt. A walk or breathing helps."
-          : "Stress is high — driven by elevated resting HR and sleep debt. Prioritise recovery and an early night.",
+          ? "Moderate strain from today's training and activity. Balance it with food and recovery."
+          : "High strain — a big training and activity load today. Prioritise protein, hydration and sleep tonight.",
     avg:
       h.weekly.avgRestingHr != null
         ? `7-day avg resting HR ${h.weekly.avgRestingHr} bpm`

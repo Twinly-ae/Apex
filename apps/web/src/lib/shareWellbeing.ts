@@ -1,9 +1,24 @@
 import type { HealthResponse } from "@apex/shared";
 
-// system-ui resolves to SF Pro on iOS and is honoured by canvas (unlike
-// -apple-system, which canvas often ignores and renders rough).
-const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+// Match the app's typefaces: Manrope for text, Space Grotesk for figures.
+const FONT = '"Manrope Variable", system-ui, "Segoe UI", Roboto, sans-serif';
+const NUM = '"Space Grotesk Variable", "Manrope Variable", system-ui, sans-serif';
 const SCALE = 2; // supersample so text & rings stay crisp on retina screens
+
+/** Make sure the web fonts are loaded before drawing to canvas. */
+async function ensureFonts(): Promise<void> {
+  if (!("fonts" in document)) return;
+  try {
+    await Promise.all([
+      document.fonts.load('700 80px "Space Grotesk Variable"'),
+      document.fonts.load('800 80px "Space Grotesk Variable"'),
+      document.fonts.load('500 40px "Manrope Variable"'),
+      document.fonts.load('700 40px "Manrope Variable"'),
+    ]);
+  } catch {
+    // fall back to system fonts
+  }
+}
 
 export type ShareDesign =
   | "card"
@@ -14,7 +29,7 @@ export type ShareDesign =
   | "rings";
 
 const RINGS = [
-  { key: "stress", label: "STRESS", from: "#f59e0b", to: "#fb7185" },
+  { key: "stress", label: "STRAIN", from: "#f59e0b", to: "#fb7185" },
   { key: "recovery", label: "RECOVERY", from: "#22c55e", to: "#a3e635" },
   { key: "sleep", label: "SLEEP", from: "#6366f1", to: "#a5b4fc" },
 ] as const;
@@ -88,8 +103,8 @@ function drawRing(
   drawArc(ctx, cx, cy, r, lw, value ?? 0, ring.from, ring.to, t.track);
 
   const num = value == null ? "—" : String(value);
-  const numFont = `800 ${Math.round(r * 0.66)}px ${FONT}`;
-  const pctFont = `700 ${Math.round(r * 0.26)}px ${FONT}`;
+  const numFont = `800 ${Math.round(r * 0.66)}px ${NUM}`;
+  const pctFont = `700 ${Math.round(r * 0.26)}px ${NUM}`;
 
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
@@ -169,7 +184,7 @@ function wordmark(
 ) {
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${size}px ${FONT}`;
+  ctx.font = `700 ${size}px ${NUM}`;
   setLS(ctx, size * 0.06);
   if (mode === "violet") {
     const g = ctx.createLinearGradient(540 - size * 1.6, y, 540 + size * 1.6, y);
@@ -371,6 +386,7 @@ export async function shareWellbeing(
   coaching: string,
   design: ShareDesign,
 ): Promise<ShareResult> {
+  await ensureFonts();
   const canvas = buildCanvas(health, coaching, design);
   const blob = await new Promise<Blob | null>((res) =>
     canvas.toBlob(res, "image/png"),

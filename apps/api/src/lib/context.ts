@@ -93,7 +93,7 @@ export async function buildUserContext(userId: string): Promise<string> {
     `Latest bodyweight: ${latestWeight ? `${latestWeight.weightKg} kg` : "unknown"}.`,
     health.hasData
       ? `Apple Health today: ${health.steps ?? "?"} steps, ${health.activeEnergyKcal ?? "?"} kcal active energy, slept ${health.sleepHours ?? "?"}h. ` +
-        `Wellbeing 0–100 (higher better, except stress): sleep ${health.scores.sleep ?? "?"}, recovery ${health.scores.recovery ?? "?"}, stress ${health.scores.stress ?? "?"} ` +
+        `Wellbeing 0–100 (higher better, except strain): sleep ${health.scores.sleep ?? "?"}, recovery ${health.scores.recovery ?? "?"}, strain ${health.scores.stress ?? "?"} ` +
         `(resting HR ${health.restingHr ?? "?"} vs ${health.hrBaseline ?? "?"} baseline). Factor recovery into today's training advice.`
       : "Apple Health: nothing synced today (no sleep, recovery, steps, or active energy) — can't assess recovery; remind him to sync his watch.",
     trainingLine,

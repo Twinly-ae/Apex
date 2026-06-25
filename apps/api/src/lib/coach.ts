@@ -84,19 +84,19 @@ export async function generateHealthTips(
   const ctx = await buildUserContext(userId);
   const h = await computeHealth(userId);
   const extra =
-    `Wellbeing scores today (0–100, higher better except stress): sleep ${h.scores.sleep ?? "?"}, ` +
-    `recovery ${h.scores.recovery ?? "?"}, stress ${h.scores.stress ?? "?"}. ` +
-    `Stress reflects training load + steps + resting-HR strain + sleep debt; recovery blends sleep with resting HR and is dampened by hard training. ` +
+    `Wellbeing scores today (0–100, higher better except strain): sleep ${h.scores.sleep ?? "?"}, ` +
+    `recovery ${h.scores.recovery ?? "?"}, strain ${h.scores.stress ?? "?"}. ` +
+    `Strain is the day's total load: training load + steps + resting-HR rise + sleep debt; recovery blends sleep with resting HR and is dampened by hard training. ` +
     `Today's activity: ${h.steps ?? "?"} steps, ${h.activeEnergyKcal ?? "?"} kcal active energy. ` +
     `Resting HR ${h.restingHr ?? "?"} bpm vs ${h.hrBaseline ?? "?"} baseline; slept ${h.sleepHours ?? "?"}h. ` +
     `Recent sleep hours: ${h.sleepSeries.map((p) => p.value).join(", ") || "none"}. ` +
     `Recent resting HR: ${h.rhrSeries.map((p) => p.value).join(", ") || "none"}.`;
   const text = await runText({
-    system: `${PERSONA} Give exactly 3 short, specific, actionable tips — one for SLEEP, one for RECOVERY, and one for STRESS / training load — using ALL his data (sleep hours, resting HR vs baseline, today's training/sets, steps, active energy). Reference his real numbers. One tip per line, each starting with "- ". No preamble, no headings.`,
+    system: `${PERSONA} Give exactly 3 short, specific, actionable tips — one for SLEEP, one for RECOVERY, and one for STRAIN (training & activity load) — using ALL his data (sleep hours, resting HR vs baseline, today's training/sets, steps, active energy). Reference his real numbers. One tip per line, each starting with "- ". No preamble, no headings.`,
     messages: [
       {
         role: "user",
-        content: `My data:\n${ctx}\n${extra}\n\nGive me 3 recovery/sleep/stress tips.`,
+        content: `My data:\n${ctx}\n${extra}\n\nGive me 3 recovery/sleep/strain tips.`,
       },
     ],
     maxTokens: 400,

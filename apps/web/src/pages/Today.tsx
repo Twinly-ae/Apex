@@ -123,7 +123,7 @@ export function Today() {
         </div>
         <div className="mt-1 flex items-end gap-2">
           <span
-            className={`text-[2.75rem] font-bold leading-none tabular-nums ${
+            className={`font-display text-[2.75rem] font-bold leading-none tabular-nums ${
               over ? "text-warn" : "text-text"
             }`}
           >

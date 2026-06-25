@@ -5,8 +5,8 @@ export const RING: Record<
   { label: string; center: string; from: string; to: string; glow: string }
 > = {
   stress: {
-    label: "Stress",
-    center: "Stress",
+    label: "Strain",
+    center: "Strain",
     from: "#f59e0b",
     to: "#fb7185",
     glow: "rgba(251,113,133,0.45)",
@@ -100,7 +100,7 @@ export function MetricRing({
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="flex items-start leading-none">
             <span
-              className={`font-bold tabular-nums text-text ${big ? "text-4xl" : "text-2xl"}`}
+              className={`font-display font-bold tabular-nums text-text ${big ? "text-4xl" : "text-2xl"}`}
             >
               {dim ? "—" : v}
             </span>

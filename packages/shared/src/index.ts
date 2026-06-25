@@ -183,6 +183,9 @@ export const TASK_COLORS = [
 export const taskColorSchema = z.enum(TASK_COLORS).nullable();
 export type TaskColor = (typeof TASK_COLORS)[number];
 
+// 0 = at due time, up to 7 days (10080 min) before; null = no reminder.
+const reminderLeadSchema = z.number().int().min(0).max(10080).nullable();
+
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(2000).nullable().optional(),
@@ -190,6 +193,7 @@ export const createTaskSchema = z.object({
   priority: taskPrioritySchema.default(2),
   color: taskColorSchema.optional(),
   estMinutes: z.number().int().min(0).max(10000).nullable().optional(),
+  reminderLead: reminderLeadSchema.optional(),
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
@@ -201,6 +205,7 @@ export const updateTaskSchema = z
     priority: taskPrioritySchema,
     color: taskColorSchema,
     estMinutes: z.number().int().min(0).max(10000).nullable(),
+    reminderLead: reminderLeadSchema,
     done: z.boolean(),
   })
   .partial();
@@ -238,6 +243,7 @@ export interface Task {
   priority: TaskPriority;
   color: TaskColor | null;
   estMinutes: number | null;
+  reminderLead: number | null;
   done: boolean;
   doneAt: string | null;
   createdAt: string;

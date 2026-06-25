@@ -1,4 +1,5 @@
 import {
+  Bell,
   Check,
   ChevronDown,
   Lock,
@@ -70,7 +71,18 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
             </span>
             {est && <span>{est}</span>}
             {task.dueDate && (
-              <span>Due {new Date(task.dueDate).toLocaleDateString()}</span>
+              <span className="inline-flex items-center gap-1">
+                Due{" "}
+                {new Date(task.dueDate).toLocaleString([], {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                {task.reminderLead != null && (
+                  <Bell className="h-3 w-3 text-accent" strokeWidth={2.5} />
+                )}
+              </span>
             )}
             {hasSteps && (
               <span className="inline-flex items-center gap-1 tabular-nums text-accent">

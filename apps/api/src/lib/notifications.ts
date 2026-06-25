@@ -96,6 +96,46 @@ async function checkLogging(userId: string): Promise<void> {
   );
 }
 
+/** Dubai-local HH:mm for a timestamp (fixed UTC+4, matches lib/time). */
+function dubaiTime(d: Date): string {
+  const s = new Date(d.getTime() + 4 * 60 * 60_000);
+  return `${String(s.getUTCHours()).padStart(2, "0")}:${String(
+    s.getUTCMinutes(),
+  ).padStart(2, "0")}`;
+}
+
+async function checkTaskReminders(userId: string): Promise<void> {
+  const now = Date.now();
+  const tasks = await prisma.task.findMany({
+    where: {
+      userId,
+      done: false,
+      reminderLead: { not: null },
+      dueDate: { not: null },
+    },
+  });
+  const today = dayString();
+  const tomorrow = dayString(new Date(now + DAY_MS));
+  for (const t of tasks) {
+    if (t.dueDate == null || t.reminderLead == null) continue;
+    const remindAt = t.dueDate.getTime() - t.reminderLead * 60_000;
+    // Fire once the reminder time has arrived; 12h grace covers brief downtime.
+    if (remindAt > now || remindAt <= now - 12 * 60 * 60_000) continue;
+
+    const dueDay = dayString(t.dueDate);
+    const whenDay =
+      dueDay === today ? "today" : dueDay === tomorrow ? "tomorrow" : dueDay;
+    await notifyOnce(
+      userId,
+      "task",
+      `task:${t.id}:${Math.round(remindAt / 60_000)}`,
+      "Task reminder",
+      `${t.title} is due ${whenDay} at ${dubaiTime(t.dueDate)}.`,
+      "/tasks",
+    );
+  }
+}
+
 /** Evaluate every rule for every user. Safe to call frequently (rules dedupe). */
 export async function runNotificationChecks(): Promise<void> {
   const users = await prisma.user.findMany({
@@ -107,6 +147,7 @@ export async function runNotificationChecks(): Promise<void> {
       if (s?.notifyBills ?? true) await checkBills(u.id);
       if (s?.notifyStreak ?? true) await checkStreak(u.id);
       if (s?.notifyLogging ?? true) await checkLogging(u.id);
+      await checkTaskReminders(u.id);
     } catch (err) {
       // Never let one user's failure stop the loop.
       console.error("[notifications]", err);

@@ -54,6 +54,7 @@ export function toTask(t: DbTask & { steps?: DbTaskStep[] }): Task {
     priority: t.priority as TaskPriority,
     color: (t.color as TaskColor | null) ?? null,
     estMinutes: t.estMinutes,
+    reminderLead: t.reminderLead,
     done: t.done,
     doneAt: t.doneAt ? t.doneAt.toISOString() : null,
     createdAt: t.createdAt.toISOString(),

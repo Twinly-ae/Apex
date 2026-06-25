@@ -41,6 +41,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         priority: body.priority,
         color: body.color ?? null,
         estMinutes: body.estMinutes ?? null,
+        reminderLead: body.reminderLead ?? null,
       },
       include: { steps: true },
     });
@@ -76,6 +77,8 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         priority: body.priority ?? undefined,
         color: body.color === undefined ? undefined : body.color,
         estMinutes: body.estMinutes === undefined ? undefined : body.estMinutes,
+        reminderLead:
+          body.reminderLead === undefined ? undefined : body.reminderLead,
         done: body.done ?? undefined,
         doneAt:
           body.done === undefined ? undefined : body.done ? new Date() : null,

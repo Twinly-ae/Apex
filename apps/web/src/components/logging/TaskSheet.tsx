@@ -24,8 +24,23 @@ const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: 3, label: "Low" },
 ];
 
-function isoToDateInput(iso: string | null): string {
-  return iso ? iso.slice(0, 10) : "";
+const REMINDERS: { value: number | null; label: string }[] = [
+  { value: null, label: "No reminder" },
+  { value: 0, label: "At due time" },
+  { value: 10, label: "10 min before" },
+  { value: 30, label: "30 min before" },
+  { value: 60, label: "1 hour before" },
+  { value: 1440, label: "1 day before" },
+];
+
+/** ISO (UTC) → a `datetime-local` value in the browser's local time. */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
 }
 
 export function TaskSheet({ open, onClose, task }: Props) {
@@ -41,6 +56,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
   const [priority, setPriority] = useState<TaskPriority>(2);
   const [color, setColor] = useState<TaskColor | null>(null);
   const [est, setEst] = useState("");
+  const [reminderLead, setReminderLead] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [newStep, setNewStep] = useState("");
   const [newStepEst, setNewStepEst] = useState("");
@@ -49,10 +65,11 @@ export function TaskSheet({ open, onClose, task }: Props) {
   useEffect(() => {
     if (!open) return;
     setTitle(task?.title ?? "");
-    setDue(isoToDateInput(task?.dueDate ?? null));
+    setDue(isoToLocalInput(task?.dueDate ?? null));
     setPriority(task?.priority ?? 2);
     setColor(task?.color ?? null);
     setEst(task?.estMinutes ? String(task.estMinutes) : "");
+    setReminderLead(task?.reminderLead ?? null);
     setNotes(task?.notes ?? "");
     setNewStep("");
     setNewStepEst("");
@@ -75,10 +92,11 @@ export function TaskSheet({ open, onClose, task }: Props) {
     if (!title.trim()) return;
     const payload = {
       title: title.trim(),
-      dueDate: due ? new Date(`${due}T09:00:00`).toISOString() : null,
+      dueDate: due ? new Date(due).toISOString() : null,
       priority,
       color,
       estMinutes: est ? Math.round(Number(est)) : null,
+      reminderLead: due ? reminderLead : null,
       notes: notes.trim() || null,
     };
     if (task) {
@@ -100,16 +118,19 @@ export function TaskSheet({ open, onClose, task }: Props) {
           className={inputClass}
         />
 
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">
+            Due date &amp; time (optional)
+          </span>
+          <input
+            type="datetime-local"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className={inputClass}
+          />
+        </label>
+
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-1 block text-xs text-muted">Due (optional)</span>
-            <input
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              className={inputClass}
-            />
-          </label>
           <label className="block">
             <span className="mb-1 block text-xs text-muted">Priority</span>
             <select
@@ -124,7 +145,29 @@ export function TaskSheet({ open, onClose, task }: Props) {
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted">Reminder</span>
+            <select
+              value={reminderLead ?? ""}
+              disabled={!due}
+              onChange={(e) =>
+                setReminderLead(e.target.value === "" ? null : Number(e.target.value))
+              }
+              className={`${selectClass} disabled:opacity-50`}
+            >
+              {REMINDERS.map((r) => (
+                <option key={r.label} value={r.value ?? ""}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
+        {!due && (
+          <p className="-mt-2 text-xs text-muted">
+            Set a due date &amp; time to enable a reminder.
+          </p>
+        )}
 
         {/* Colour + estimate */}
         <div className="grid grid-cols-2 gap-3">

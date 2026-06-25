@@ -62,7 +62,7 @@ export async function computeHealth(
         userId,
         performedAt: { gte: new Date(`${since14}T00:00:00.000Z`) },
       },
-      select: { performedAt: true },
+      select: { performedAt: true, _count: { select: { sets: true } } },
     }),
   ]);
 
@@ -71,6 +71,7 @@ export async function computeHealth(
   const rhrAtByDay = new Map<string, Date>();
   const sleepByDay = new Map<string, number>();
   const activeByDay = new Map<string, number>();
+  const stepsByDay = new Map<string, number>();
   for (const m of rows) {
     if (m.type === "resting_hr") {
       const prev = rhrAtByDay.get(m.day);
@@ -82,6 +83,8 @@ export async function computeHealth(
       sleepByDay.set(m.day, (sleepByDay.get(m.day) ?? 0) + m.value);
     } else if (m.type === "active_energy") {
       activeByDay.set(m.day, (activeByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "steps") {
+      stepsByDay.set(m.day, (stepsByDay.get(m.day) ?? 0) + m.value);
     }
   }
 
@@ -91,9 +94,11 @@ export async function computeHealth(
     caloriesByDay.set(d, (caloriesByDay.get(d) ?? 0) + m.calories);
   }
   const workoutsByDay = new Map<string, number>();
+  const setsByDay = new Map<string, number>();
   for (const w of workouts) {
     const d = dayString(w.performedAt);
     workoutsByDay.set(d, (workoutsByDay.get(d) ?? 0) + 1);
+    setsByDay.set(d, (setsByDay.get(d) ?? 0) + w._count.sets);
   }
 
   // 30-day resting-HR baseline (exclude today so a bad night stands out).
@@ -108,6 +113,34 @@ export async function computeHealth(
   const sleepHours = sleepByDay.has(day)
     ? Math.round((sleepByDay.get(day) as number) * 10) / 10
     : null;
+  const daySteps = stepsByDay.has(day)
+    ? Math.round(stepsByDay.get(day) as number)
+    : null;
+  const dayActive = activeByDay.has(day)
+    ? Math.round(activeByDay.get(day) as number)
+    : null;
+  const daySets = setsByDay.get(day) ?? 0;
+  const dayWorkouts = workoutsByDay.get(day) ?? 0;
+
+  // ---- Daily load components (feed stress, and dampen recovery) ------------
+  // Training load 0–45 from logged/Hevy sets (~18 sets maxes it), or a per-
+  // session estimate when set detail is missing (e.g. a bare Hevy import).
+  const trainingLoad =
+    daySets > 0 ? Math.min(45, daySets * 2.5) : Math.min(45, dayWorkouts * 30);
+  // Activity load 0–30 from steps + active energy.
+  const activityLoad = Math.min(
+    30,
+    (daySteps != null ? (daySteps / 10_000) * 20 : 0) +
+      (dayActive != null ? (dayActive / 500) * 10 : 0),
+  );
+  // Physiological strain 0–25 from resting HR above your 30-day baseline.
+  const hrStress =
+    restingHr != null && hrBaseline != null
+      ? Math.min(25, Math.max(0, restingHr - hrBaseline) * 5)
+      : 0;
+  // Sleep-debt strain 0–25 from sleeping under ~7.5h.
+  const sleepDebt =
+    sleepHours != null ? Math.min(25, Math.max(0, 7.5 - sleepHours) * 7) : 0;
 
   // ---- Scores -------------------------------------------------------------
   const sleepScore =
@@ -120,22 +153,29 @@ export async function computeHealth(
 
   let recovery: number | null = null;
   if (sleepScore != null && hrComponent != null) {
-    recovery = Math.round(0.5 * sleepScore + 0.5 * hrComponent);
+    recovery = 0.5 * sleepScore + 0.5 * hrComponent;
   } else if (sleepScore != null) {
     recovery = sleepScore;
   } else if (hrComponent != null) {
-    recovery = Math.round(hrComponent);
+    recovery = hrComponent;
+  }
+  if (recovery != null) {
+    // A hard training day leaves you less recovered right now.
+    recovery = Math.round(clamp(recovery - Math.min(15, trainingLoad * 0.25), 0, 100));
   }
 
-  let stress: number | null = null;
-  if (restingHr != null || sleepHours != null) {
-    const hrPart =
-      restingHr != null && hrBaseline != null
-        ? Math.max(0, restingHr - hrBaseline) * 6
-        : 0;
-    const sleepPart = sleepHours != null ? Math.max(0, 7.5 - sleepHours) * 8 : 0;
-    stress = Math.round(clamp(hrPart + sleepPart, 0, 100));
-  }
+  // Stress = today's total load on the body: training + activity + resting-HR
+  // strain + sleep debt. Non-zero on a training day even before the watch syncs.
+  const hasLoadSignal =
+    daySets > 0 ||
+    dayWorkouts > 0 ||
+    daySteps != null ||
+    dayActive != null ||
+    restingHr != null ||
+    sleepHours != null;
+  const stress = hasLoadSignal
+    ? Math.round(clamp(trainingLoad + activityLoad + hrStress + sleepDebt, 0, 100))
+    : null;
 
   // ---- 14-day series ------------------------------------------------------
   const sleepSeries: HealthPoint[] = [];
@@ -213,7 +253,7 @@ export async function computeHealth(
     weekly,
     energySeries,
     updatedAt: summary.updatedAt,
-    hasData: restingHr != null || sleepHours != null || summary.steps != null,
+    hasData: stress != null || summary.steps != null,
   };
 }
 

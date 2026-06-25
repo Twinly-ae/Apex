@@ -9,8 +9,11 @@ import { Sheet } from "../ui/Sheet";
 
 const DESIGNS: { id: ShareDesign; name: string; desc: string }[] = [
   { id: "card", name: "Full card", desc: "Rings, stats & coaching" },
-  { id: "minimal", name: "Minimal", desc: "Clean — just rings" },
-  { id: "rings", name: "Rings only", desc: "Transparent overlay" },
+  { id: "bold", name: "Bold", desc: "Vibrant gradient" },
+  { id: "focus", name: "Focus", desc: "Recovery hero" },
+  { id: "minimal", name: "Minimal", desc: "Clean dark" },
+  { id: "light", name: "Light", desc: "Light background" },
+  { id: "rings", name: "Transparent", desc: "Clear background" },
 ];
 
 export function ShareSheet({

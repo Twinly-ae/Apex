@@ -1,8 +1,8 @@
 import { Share2 } from "lucide-react";
 import { useState } from "react";
 import type { HealthResponse } from "@apex/shared";
-import { shareWellbeing } from "../../lib/shareWellbeing";
 import { type Metric, ORDER, RING, MetricRing } from "./MetricRing";
+import { ShareSheet } from "./ShareSheet";
 
 /** Plain-language coaching from the scores — works with no AI credits. */
 function summaryCoaching(h: HealthResponse): string {
@@ -108,7 +108,7 @@ function detailFor(
 /** Whoop-style wellbeing card: 3 gradient rings + coaching, tap for detail. */
 export function Wellbeing({ health }: { health?: HealthResponse }) {
   const [open, setOpen] = useState<Metric | null>(null);
-  const [sharing, setSharing] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   if (!health?.hasData) {
     return (
@@ -133,16 +133,6 @@ export function Wellbeing({ health }: { health?: HealthResponse }) {
 
   const detail = open ? detailFor(open, health) : null;
 
-  async function handleShare() {
-    if (sharing || !health) return;
-    setSharing(true);
-    try {
-      await shareWellbeing(health, summaryCoaching(health));
-    } finally {
-      setSharing(false);
-    }
-  }
-
   return (
     <div className="space-y-4">
       <section className="rounded-3xl border border-line bg-gradient-to-br from-surface to-surface-2 p-5 shadow-card">
@@ -151,12 +141,11 @@ export function Wellbeing({ health }: { health?: HealthResponse }) {
             Today
           </span>
           <button
-            onClick={handleShare}
-            disabled={sharing}
-            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted active:opacity-70 disabled:opacity-50"
+            onClick={() => setShareOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted active:opacity-70"
           >
             <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
-            {sharing ? "Preparing…" : "Share"}
+            Share
           </button>
         </div>
         <div className="grid grid-cols-3 gap-1">
@@ -214,6 +203,13 @@ export function Wellbeing({ health }: { health?: HealthResponse }) {
           <p className="mt-3 text-center text-xs text-muted">{detail.avg}</p>
         </section>
       )}
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        health={health}
+        coaching={summaryCoaching(health)}
+      />
     </div>
   );
 }

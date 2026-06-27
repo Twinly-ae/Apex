@@ -6,7 +6,7 @@ import { computeHealth } from "../lib/health";
 import { dayString } from "../lib/time";
 
 // The metrics that actually drive the sleep / recovery / stress scores.
-const TRACKED = ["sleep_hours", "resting_hr", "steps", "active_energy"];
+const TRACKED = ["sleep_hours", "resting_hr", "hrv", "steps", "active_energy"];
 
 export default async function healthRoutes(
   app: FastifyInstance,

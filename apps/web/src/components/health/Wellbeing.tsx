@@ -44,17 +44,32 @@ function detailFor(
 ): { cards: [string, string][]; coaching: string; avg: string } {
   if (metric === "sleep") {
     const b = band(h.scores.sleep, true);
+    const parts: string[] = [];
+    if (h.remHours != null) parts.push(`${h.remHours}h REM`);
+    if (h.deepHours != null) parts.push(`${h.deepHours}h deep`);
+    if (h.sleepEfficiency != null) parts.push(`${h.sleepEfficiency}% efficient`);
+    const detail = parts.length ? ` (${parts.join(", ")})` : "";
+    const awakeBit =
+      h.awakeHours != null && h.awakeHours >= 0.5
+        ? ` You were awake ~${h.awakeHours}h overnight — a cool, dark, screen-free room helps you settle.`
+        : "";
     return {
       cards: [
-        ["Time asleep", h.sleepHours != null ? `${h.sleepHours}h` : "—"],
-        ["Target", "8h"],
+        ["Asleep", h.sleepHours != null ? `${h.sleepHours}h` : "—"],
+        [
+          "Efficiency",
+          h.sleepEfficiency != null ? `${h.sleepEfficiency}%` : "—",
+        ],
+        ["REM", h.remHours != null ? `${h.remHours}h` : "—"],
+        ["Deep", h.deepHours != null ? `${h.deepHours}h` : "—"],
       ],
       coaching:
-        b === "good"
-          ? "You slept well last night. Keep your sleep and wake times consistent to lock it in."
+        (b === "good"
+          ? `Strong sleep${detail}. Keep your sleep and wake times consistent to lock it in.`
           : b === "mid"
-            ? "Fair sleep last night. Improve it tonight by avoiding food, caffeine, and screens before bed."
-            : "Short on sleep. Protect tonight — wind down early and keep the room cool and dark.",
+            ? `Decent sleep${detail}. More deep & REM comes from an earlier, consistent bedtime and no late caffeine.`
+            : `Light or broken sleep${detail}. Protect tonight — wind down early, cool dark room, no screens.`) +
+        awakeBit,
       avg:
         h.weekly.avgSleepHours != null
           ? `7-day avg ${h.weekly.avgSleepHours}h over ${h.weekly.nights} nights`
@@ -64,15 +79,22 @@ function detailFor(
   if (metric === "recovery") {
     const b = band(h.scores.recovery, true);
     const cmp =
-      h.restingHr != null && h.hrBaseline != null
-        ? h.restingHr > h.hrBaseline
-          ? ` Your resting HR (${h.restingHr}) is higher than your ${h.hrBaseline} bpm baseline.`
-          : ` Your resting HR (${h.restingHr}) is at or below your ${h.hrBaseline} bpm baseline — a good sign.`
-        : "";
+      h.hrv != null && h.hrvBaseline != null
+        ? ` HRV ${h.hrv}ms is ${
+            h.hrv >= h.hrvBaseline ? "at or above" : "below"
+          } your ${h.hrvBaseline}ms baseline.`
+        : h.restingHr != null && h.hrBaseline != null
+          ? ` Resting HR ${h.restingHr} vs ${h.hrBaseline} bpm baseline.`
+          : "";
     return {
       cards: [
+        ["HRV", h.hrv != null ? `${h.hrv} ms` : "—"],
+        ["HRV base", h.hrvBaseline != null ? `${h.hrvBaseline} ms` : "—"],
         ["Resting HR", h.restingHr != null ? `${h.restingHr} bpm` : "—"],
-        ["Baseline", h.hrBaseline != null ? `${h.hrBaseline} bpm` : "—"],
+        [
+          "Resp. rate",
+          h.respiratoryRate != null ? `${h.respiratoryRate} br/m` : "—",
+        ],
       ],
       coaching:
         (b === "good"

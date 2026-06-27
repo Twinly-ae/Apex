@@ -645,6 +645,17 @@ export interface HealthResponse {
   restingHr: number | null;
   hrBaseline: number | null;
   sleepHours: number | null;
+  /** Heart-rate variability (ms) and its 30-day baseline — drives recovery. */
+  hrv: number | null;
+  hrvBaseline: number | null;
+  /** Average overnight respiratory rate (breaths/min). */
+  respiratoryRate: number | null;
+  /** Sleep architecture (hours) and efficiency (% of time in bed asleep). */
+  remHours: number | null;
+  deepHours: number | null;
+  awakeHours: number | null;
+  inBedHours: number | null;
+  sleepEfficiency: number | null;
   sleepSeries: HealthPoint[];
   rhrSeries: HealthPoint[];
   weekly: HealthWeekly;

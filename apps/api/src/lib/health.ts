@@ -9,6 +9,7 @@ import { dayBefore, dayString } from "./time";
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, n));
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 const sleepScoreOf = (hours: number | null): number | null =>
   hours == null ? null : Math.round(clamp((hours / 8) * 100, 0, 100));
@@ -49,7 +50,21 @@ export async function computeHealth(
       where: {
         userId,
         day: { gte: since },
-        type: { in: ["resting_hr", "sleep_hours", "steps", "active_energy"] },
+        type: {
+          in: [
+            "resting_hr",
+            "sleep_hours",
+            "steps",
+            "active_energy",
+            "hrv",
+            "respiratory_rate",
+            "sleep_rem",
+            "sleep_deep",
+            "sleep_core",
+            "sleep_awake",
+            "sleep_in_bed",
+          ],
+        },
       },
     }),
     prisma.settings.findUnique({ where: { userId } }),
@@ -72,6 +87,24 @@ export async function computeHealth(
   const sleepByDay = new Map<string, number>();
   const activeByDay = new Map<string, number>();
   const stepsByDay = new Map<string, number>();
+  const remByDay = new Map<string, number>();
+  const deepByDay = new Map<string, number>();
+  const awakeByDay = new Map<string, number>();
+  const inBedByDay = new Map<string, number>();
+  // HRV & respiratory rate are averaged per day (sum + count).
+  const hrvSum = new Map<string, number>();
+  const hrvCnt = new Map<string, number>();
+  const respSum = new Map<string, number>();
+  const respCnt = new Map<string, number>();
+  const addAvg = (
+    sum: Map<string, number>,
+    cnt: Map<string, number>,
+    day: string,
+    v: number,
+  ) => {
+    sum.set(day, (sum.get(day) ?? 0) + v);
+    cnt.set(day, (cnt.get(day) ?? 0) + 1);
+  };
   for (const m of rows) {
     if (m.type === "resting_hr") {
       const prev = rhrAtByDay.get(m.day);
@@ -85,8 +118,24 @@ export async function computeHealth(
       activeByDay.set(m.day, (activeByDay.get(m.day) ?? 0) + m.value);
     } else if (m.type === "steps") {
       stepsByDay.set(m.day, (stepsByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "sleep_rem") {
+      remByDay.set(m.day, (remByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "sleep_deep") {
+      deepByDay.set(m.day, (deepByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "sleep_awake") {
+      awakeByDay.set(m.day, (awakeByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "sleep_in_bed") {
+      inBedByDay.set(m.day, (inBedByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "hrv") {
+      addAvg(hrvSum, hrvCnt, m.day, m.value);
+    } else if (m.type === "respiratory_rate") {
+      addAvg(respSum, respCnt, m.day, m.value);
     }
   }
+  const hrvByDay = new Map<string, number>();
+  for (const [d, sum] of hrvSum) hrvByDay.set(d, sum / (hrvCnt.get(d) ?? 1));
+  const respByDay = new Map<string, number>();
+  for (const [d, sum] of respSum) respByDay.set(d, sum / (respCnt.get(d) ?? 1));
 
   const caloriesByDay = new Map<string, number>();
   for (const m of meals) {
@@ -110,71 +159,120 @@ export async function computeHealth(
     : null;
 
   const restingHr = rhrByDay.has(day) ? Math.round(rhrByDay.get(day) as number) : null;
-  const sleepHours = sleepByDay.has(day)
-    ? Math.round((sleepByDay.get(day) as number) * 10) / 10
-    : null;
-  const daySteps = stepsByDay.has(day)
-    ? Math.round(stepsByDay.get(day) as number)
-    : null;
-  const dayActive = activeByDay.has(day)
-    ? Math.round(activeByDay.get(day) as number)
-    : null;
+  const sleepHours = sleepByDay.has(day) ? round1(sleepByDay.get(day) as number) : null;
+  const daySteps = stepsByDay.has(day) ? Math.round(stepsByDay.get(day) as number) : null;
+  const dayActive = activeByDay.has(day) ? Math.round(activeByDay.get(day) as number) : null;
   const daySets = setsByDay.get(day) ?? 0;
   const dayWorkouts = workoutsByDay.get(day) ?? 0;
 
-  // ---- Daily load components (feed stress, and dampen recovery) ------------
-  // Training load 0–45 from logged/Hevy sets (~18 sets maxes it), or a per-
-  // session estimate when set detail is missing (e.g. a bare Hevy import).
+  // Sleep architecture (hours) + efficiency, when the watch reports stages.
+  const remHours = remByDay.has(day) ? round1(remByDay.get(day) as number) : null;
+  const deepHours = deepByDay.has(day) ? round1(deepByDay.get(day) as number) : null;
+  const awakeHours = awakeByDay.has(day) ? round1(awakeByDay.get(day) as number) : null;
+  const inBedHours = inBedByDay.has(day) ? round1(inBedByDay.get(day) as number) : null;
+  const sleepEfficiency =
+    sleepHours != null && inBedHours != null && inBedHours > 0
+      ? Math.round(clamp((sleepHours / inBedHours) * 100, 0, 100))
+      : null;
+
+  // HRV (autonomic recovery) + its 30-day baseline, and respiratory rate.
+  const hrv = hrvByDay.has(day) ? Math.round(hrvByDay.get(day) as number) : null;
+  const hrvBase = [...hrvByDay.entries()].filter(([d]) => d !== day).map(([, v]) => v);
+  const hrvBaseline = hrvBase.length
+    ? Math.round(hrvBase.reduce((s, v) => s + v, 0) / hrvBase.length)
+    : null;
+  const respiratoryRate = respByDay.has(day) ? round1(respByDay.get(day) as number) : null;
+  const respBase = [...respByDay.entries()].filter(([d]) => d !== day).map(([, v]) => v);
+  const respBaseline = respBase.length
+    ? respBase.reduce((s, v) => s + v, 0) / respBase.length
+    : null;
+
+  // ---- Daily load components (feed strain, and dampen recovery) -----------
   const trainingLoad =
     daySets > 0 ? Math.min(45, daySets * 2.5) : Math.min(45, dayWorkouts * 30);
-  // Activity load 0–30 from steps + active energy.
   const activityLoad = Math.min(
     30,
     (daySteps != null ? (daySteps / 10_000) * 20 : 0) +
       (dayActive != null ? (dayActive / 500) * 10 : 0),
   );
-  // Physiological strain 0–25 from resting HR above your 30-day baseline.
-  const hrStress =
+  const hrStrain =
     restingHr != null && hrBaseline != null
       ? Math.min(25, Math.max(0, restingHr - hrBaseline) * 5)
       : 0;
-  // Sleep-debt strain 0–25 from sleeping under ~7.5h.
   const sleepDebt =
     sleepHours != null ? Math.min(25, Math.max(0, 7.5 - sleepHours) * 7) : 0;
+  // Suppressed HRV (below baseline) signals the body is still under load.
+  const hrvStrain =
+    hrv != null && hrvBaseline != null && hrv < hrvBaseline
+      ? Math.min(15, ((hrvBaseline - hrv) / hrvBaseline) * 60)
+      : 0;
 
-  // ---- Scores -------------------------------------------------------------
-  const sleepScore =
-    sleepHours == null ? null : Math.round(clamp((sleepHours / 8) * 100, 0, 100));
+  // ---- Sleep score: duration + efficiency + REM + deep − restlessness -----
+  let sleepScore: number | null = null;
+  if (sleepHours != null) {
+    const comps: { w: number; v: number }[] = [
+      { w: 0.45, v: clamp((sleepHours / 8) * 100, 0, 100) },
+    ];
+    if (sleepEfficiency != null) {
+      comps.push({ w: 0.2, v: clamp((sleepEfficiency - 75) * 5, 0, 100) });
+    }
+    if (remHours != null && sleepHours > 0) {
+      const remFrac = remHours / sleepHours; // ideal ≈ 22%
+      comps.push({ w: 0.2, v: clamp(100 - Math.abs(remFrac - 0.22) * 400, 0, 100) });
+    }
+    if (deepHours != null && sleepHours > 0) {
+      const deepFrac = deepHours / sleepHours; // ideal ≈ 15%
+      comps.push({ w: 0.15, v: clamp(100 - Math.abs(deepFrac - 0.15) * 450, 0, 100) });
+    }
+    const totW = comps.reduce((s, c) => s + c.w, 0);
+    let s = comps.reduce((acc, c) => acc + c.w * c.v, 0) / totW;
+    if (awakeHours != null) s -= Math.min(20, awakeHours * 12); // restless penalty
+    sleepScore = Math.round(clamp(s, 0, 100));
+  }
 
+  // ---- Recovery: HRV vs baseline + resting HR + sleep, − strain & resp ----
+  const hrvScore =
+    hrv != null && hrvBaseline != null
+      ? clamp(50 + (hrv / hrvBaseline - 1) * 150, 0, 100)
+      : null;
   const hrComponent =
     restingHr != null && hrBaseline != null
       ? clamp(100 - (restingHr - hrBaseline) * 5, 0, 100)
       : null;
-
   let recovery: number | null = null;
-  if (sleepScore != null && hrComponent != null) {
-    recovery = 0.5 * sleepScore + 0.5 * hrComponent;
-  } else if (sleepScore != null) {
-    recovery = sleepScore;
-  } else if (hrComponent != null) {
-    recovery = hrComponent;
-  }
-  if (recovery != null) {
-    // A hard training day leaves you less recovered right now.
-    recovery = Math.round(clamp(recovery - Math.min(15, trainingLoad * 0.25), 0, 100));
+  {
+    const comps: { w: number; v: number }[] = [];
+    if (hrvScore != null) comps.push({ w: 0.45, v: hrvScore });
+    if (hrComponent != null) comps.push({ w: 0.3, v: hrComponent });
+    if (sleepScore != null) comps.push({ w: 0.25, v: sleepScore });
+    if (comps.length) {
+      const totW = comps.reduce((s, c) => s + c.w, 0);
+      let r = comps.reduce((acc, c) => acc + c.w * c.v, 0) / totW;
+      r -= Math.min(15, trainingLoad * 0.25); // hard training lowers readiness
+      if (respiratoryRate != null && respBaseline != null) {
+        r -= Math.min(10, Math.max(0, respiratoryRate - respBaseline - 1) * 6);
+      }
+      recovery = Math.round(clamp(r, 0, 100));
+    }
   }
 
-  // Stress = today's total load on the body: training + activity + resting-HR
-  // strain + sleep debt. Non-zero on a training day even before the watch syncs.
+  // ---- Strain: total load on the body today ------------------------------
   const hasLoadSignal =
     daySets > 0 ||
     dayWorkouts > 0 ||
     daySteps != null ||
     dayActive != null ||
     restingHr != null ||
-    sleepHours != null;
+    sleepHours != null ||
+    hrv != null;
   const stress = hasLoadSignal
-    ? Math.round(clamp(trainingLoad + activityLoad + hrStress + sleepDebt, 0, 100))
+    ? Math.round(
+        clamp(
+          trainingLoad + activityLoad + hrStrain + sleepDebt + hrvStrain,
+          0,
+          100,
+        ),
+      )
     : null;
 
   // ---- 14-day series ------------------------------------------------------
@@ -248,6 +346,14 @@ export async function computeHealth(
     restingHr,
     hrBaseline,
     sleepHours,
+    hrv,
+    hrvBaseline,
+    respiratoryRate,
+    remHours,
+    deepHours,
+    awakeHours,
+    inBedHours,
+    sleepEfficiency,
     sleepSeries,
     rhrSeries,
     weekly,

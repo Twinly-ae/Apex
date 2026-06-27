@@ -4,6 +4,7 @@ import { useHealthSync } from "../../lib/queries";
 const NAMES: Record<string, string> = {
   sleep_hours: "Sleep",
   resting_hr: "Resting HR",
+  hrv: "HRV",
   steps: "Steps",
   active_energy: "Active energy",
 };

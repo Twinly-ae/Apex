@@ -10,6 +10,9 @@ const NAME_MAP: Record<string, string> = {
   active_energy: "active_energy",
   resting_heart_rate: "resting_hr",
   heart_rate: "heart_rate",
+  heart_rate_variability: "hrv",
+  heart_rate_variability_sdnn: "hrv",
+  respiratory_rate: "respiratory_rate",
   weight_body_mass: "bodyweight",
   body_mass: "bodyweight",
   sleep_analysis: "sleep_hours",
@@ -28,6 +31,7 @@ interface HaePoint {
   core?: number | string; // detailed-sleep stage hours
   deep?: number | string;
   rem?: number | string;
+  awake?: number | string;
 }
 interface HaeMetric {
   name?: string;
@@ -87,6 +91,24 @@ function pointValue(type: string, p: HaePoint): number | null {
   return num(p.qty) ?? num(p.value) ?? num(p.Avg);
 }
 
+/** A sleep point fans out into total asleep + each stage (REM/deep/core/awake)
+ *  + time in bed, so we can score quality, not just duration. */
+function sleepEntries(p: HaePoint): { type: string; value: number }[] {
+  const out: { type: string; value: number }[] = [];
+  const total = sleepHoursFromPoint(p);
+  if (total != null) out.push({ type: "sleep_hours", value: total });
+  const add = (raw: number | string | undefined, type: string) => {
+    const v = num(raw);
+    if (v != null && v > 0) out.push({ type, value: toHours(v) });
+  };
+  add(p.rem, "sleep_rem");
+  add(p.deep, "sleep_deep");
+  add(p.core, "sleep_core");
+  add(p.awake, "sleep_awake");
+  add(p.inBed, "sleep_in_bed");
+  return out;
+}
+
 export default async function ingestRoutes(
   app: FastifyInstance,
 ): Promise<void> {
@@ -129,38 +151,54 @@ export default async function ingestRoutes(
 
         for (const point of metric.data) {
           const at = parseHaeDate(point.date);
-          const value = pointValue(type, point);
-          if (!at || value == null) continue;
+          if (!at) continue;
           const day = dayString(at);
 
-          await prisma.healthMetric.upsert({
-            where: { userId_type_startAt: { userId: user.id, type, startAt: at } },
-            create: {
-              userId: user.id,
-              type,
-              value,
-              unit: metric.units ?? null,
-              day,
-              startAt: at,
-            },
-            update: { value, unit: metric.units ?? null, day },
-          });
-          written++;
+          // Sleep fans out into stages; everything else is a single value.
+          const entries =
+            type === "sleep_hours"
+              ? sleepEntries(point)
+              : (() => {
+                  const v = pointValue(type, point);
+                  return v == null ? [] : [{ type, value: v }];
+                })();
 
-          // Bodyweight also flows into the weight log (deduped by timestamp).
-          if (type === "bodyweight") {
-            const exists = await prisma.bodyweightEntry.findFirst({
-              where: { userId: user.id, measuredAt: at, source: "watch" },
-            });
-            if (!exists) {
-              await prisma.bodyweightEntry.create({
-                data: {
+          for (const e of entries) {
+            await prisma.healthMetric.upsert({
+              where: {
+                userId_type_startAt: {
                   userId: user.id,
-                  weightKg: value,
-                  measuredAt: at,
-                  source: "watch",
+                  type: e.type,
+                  startAt: at,
                 },
+              },
+              create: {
+                userId: user.id,
+                type: e.type,
+                value: e.value,
+                unit: metric.units ?? null,
+                day,
+                startAt: at,
+              },
+              update: { value: e.value, unit: metric.units ?? null, day },
+            });
+            written++;
+
+            // Bodyweight also flows into the weight log (deduped by timestamp).
+            if (e.type === "bodyweight") {
+              const exists = await prisma.bodyweightEntry.findFirst({
+                where: { userId: user.id, measuredAt: at, source: "watch" },
               });
+              if (!exists) {
+                await prisma.bodyweightEntry.create({
+                  data: {
+                    userId: user.id,
+                    weightKg: e.value,
+                    measuredAt: at,
+                    source: "watch",
+                  },
+                });
+              }
             }
           }
         }

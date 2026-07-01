@@ -185,6 +185,11 @@ export function Today() {
           )}
         </div>
         <p className="text-sm leading-relaxed text-text">{data.briefing}</p>
+        {genBriefing.isError && (
+          <p className="mt-2 text-xs text-bad">
+            {(genBriefing.error as Error).message}
+          </p>
+        )}
       </section>
 
       {/* Today's plan — focus (the "why") sits atop Claude's time-blocks (the "when") */}
@@ -233,6 +238,11 @@ export function Today() {
                 and goals.
               </p>
             ))}
+          {genPlan.isError && (
+            <p className="mt-2 text-xs text-bad">
+              {(genPlan.error as Error).message}
+            </p>
+          )}
         </section>
       )}
 

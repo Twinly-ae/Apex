@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import {
   type AiChatMessage,
   type AiText,
@@ -6,7 +6,12 @@ import {
   reviewTypeSchema,
 } from "@apex/shared";
 import { prisma } from "../db";
-import { type AiMessageParam, aiConfigured, runText } from "../lib/ai";
+import {
+  type AiMessageParam,
+  aiConfigured,
+  aiErrorMessage,
+  runText,
+} from "../lib/ai";
 import {
   generateBriefing,
   generateHealthTips,
@@ -25,6 +30,20 @@ function toChat(m: { id: string; role: string; content: string; createdAt: Date 
     content: m.content,
     createdAt: m.createdAt.toISOString(),
   };
+}
+
+/** Run an AI generation, surfacing the real reason (credits/key/etc.) on failure. */
+async function runAi<T>(
+  reply: FastifyReply,
+  fn: () => Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await fn();
+  } catch (err) {
+    reply.log.error({ err }, "AI generation failed");
+    reply.code(502).send({ error: aiErrorMessage(err) });
+    return undefined;
+  }
 }
 
 export default async function aiRoutes(app: FastifyInstance): Promise<void> {
@@ -61,10 +80,9 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       content: m.content,
     }));
 
-    const ctx = await buildUserContext(request.userId);
-    let answer: string;
-    try {
-      answer = await runText({
+    const answer = await runAi(reply, async () => {
+      const ctx = await buildUserContext(request.userId);
+      return runText({
         system:
           "You are Apex, the user's private life coach with full view of his data. " +
           "Answer his question or coach him using his real numbers below. Be concise, " +
@@ -74,12 +92,8 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
         maxTokens: 1024,
         thinking: true,
       });
-    } catch (err) {
-      reply.code(502).send({
-        error: err instanceof Error ? err.message : "AI request failed",
-      });
-      return;
-    }
+    });
+    if (answer === undefined) return;
 
     const saved = await prisma.aiMessage.create({
       data: { userId: request.userId, role: "assistant", content: answer },
@@ -102,8 +116,9 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       reply.code(503).send({ error: "AI is not configured" });
       return;
     }
-    const { text, generatedAt } = await generateBriefing(request.userId);
-    return { configured: true, text, generatedAt: generatedAt.toISOString() };
+    const r = await runAi(reply, () => generateBriefing(request.userId));
+    if (!r) return;
+    return { configured: true, text: r.text, generatedAt: r.generatedAt.toISOString() };
   });
 
   /* ----- Health tips (recovery / sleep / stress) ----- */
@@ -121,8 +136,9 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       reply.code(503).send({ error: "AI is not configured" });
       return;
     }
-    const { text, generatedAt } = await generateHealthTips(request.userId);
-    return { configured: true, text, generatedAt: generatedAt.toISOString() };
+    const r = await runAi(reply, () => generateHealthTips(request.userId));
+    if (!r) return;
+    return { configured: true, text: r.text, generatedAt: r.generatedAt.toISOString() };
   });
 
   /* ----- Day plan (time-blocking) ----- */
@@ -142,8 +158,9 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
     }
     const commitments = (request.body as { commitments?: string } | undefined)
       ?.commitments;
-    const { text, generatedAt } = await generatePlan(request.userId, commitments);
-    return { configured: true, text, generatedAt: generatedAt.toISOString() };
+    const r = await runAi(reply, () => generatePlan(request.userId, commitments));
+    if (!r) return;
+    return { configured: true, text: r.text, generatedAt: r.generatedAt.toISOString() };
   });
 
   /* ----- Weekly reviews ----- */
@@ -179,7 +196,8 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       reply.code(503).send({ error: "AI is not configured" });
       return;
     }
-    const { text, generatedAt } = await generateReview(request.userId, type.data);
-    return { configured: true, text, generatedAt: generatedAt.toISOString() };
+    const r = await runAi(reply, () => generateReview(request.userId, type.data));
+    if (!r) return;
+    return { configured: true, text: r.text, generatedAt: r.generatedAt.toISOString() };
   });
 }

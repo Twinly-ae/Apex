@@ -16,9 +16,28 @@ export function aiConfigured(): boolean {
   return Boolean(env.ANTHROPIC_API_KEY);
 }
 
-/** Validate the API key + that the configured model is reachable (no tokens). */
+/** Validate the API key, model AND credit balance with a 1-token generation
+ *  (a plain models.retrieve would miss a "credit balance too low" error). */
 export async function pingAi(): Promise<void> {
-  await getClient().models.retrieve(MODEL);
+  await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 1,
+    messages: [{ role: "user", content: "ping" }],
+  });
+}
+
+/** Turn an Anthropic/SDK error into a short, user-actionable message. */
+export function aiErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/credit balance is too low/i.test(raw))
+    return "Anthropic credit balance is too low — add credits at console.anthropic.com, then try again.";
+  if (/invalid x-api-key|authentication_error|\b401\b/i.test(raw))
+    return "The ANTHROPIC_API_KEY on the API is invalid.";
+  if (/rate.?limit|overloaded|\b429\b|\b529\b/i.test(raw))
+    return "Claude is rate-limited or overloaded right now — try again in a moment.";
+  if (/not_found_error|model/i.test(raw) && /model|not_found/i.test(raw))
+    return `The configured model (${MODEL}) isn't available on this Anthropic account.`;
+  return raw.slice(0, 240);
 }
 
 export type AiMessageParam = Anthropic.MessageParam;

@@ -152,9 +152,12 @@ function HealthTips() {
         </p>
       ) : (
         <p className="text-sm text-muted">
-          Get 3 specific tips to improve your recovery, sleep, and stress from
+          Get 3 specific tips to improve your recovery, sleep, and strain from
           your real data.
         </p>
+      )}
+      {gen.isError && (
+        <p className="mt-2 text-xs text-bad">{(gen.error as Error).message}</p>
       )}
     </section>
   );

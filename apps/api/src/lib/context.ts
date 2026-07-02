@@ -18,6 +18,7 @@ export async function buildUserContext(userId: string): Promise<string> {
     health,
     plannedWorkouts,
     trainingPlan,
+    timedTasks,
   ] = await Promise.all([
     prisma.settings.findUnique({ where: { userId } }),
     prisma.meal.findMany({ where: { userId, eatenAt: { gte: start, lt: end } } }),
@@ -39,6 +40,17 @@ export async function buildUserContext(userId: string): Promise<string> {
       where: { userId, performedAt: { gte: start, lt: end } },
     }),
     prisma.trainingPlan.findUnique({ where: { userId } }),
+    prisma.task.findMany({
+      where: {
+        userId,
+        done: true,
+        estMinutes: { gt: 0 },
+        actualMinutes: { gt: 0 },
+      },
+      orderBy: { doneAt: "desc" },
+      take: 20,
+      select: { estMinutes: true, actualMinutes: true },
+    }),
   ]);
 
   // Today's planned training split + whether it's been done.
@@ -80,6 +92,17 @@ export async function buildUserContext(userId: string): Promise<string> {
     ? `Estimated open-task workload: ~${Math.round((totalEstMin / 60) * 10) / 10}h total.`
     : "Estimated open-task workload: not estimated.";
 
+  // How his estimates compare to focus-timer reality — lets the planner pad
+  // (or tighten) time blocks instead of trusting raw estimates.
+  const estSum = timedTasks.reduce((s, t) => s + (t.estMinutes ?? 0), 0);
+  const actSum = timedTasks.reduce((s, t) => s + (t.actualMinutes ?? 0), 0);
+  const calibrationLine =
+    timedTasks.length >= 3 && estSum > 0
+      ? `Estimate calibration: his last ${timedTasks.length} timed tasks took ~${
+          Math.round((actSum / estSum) * 10) / 10
+        }x their estimates — size time blocks accordingly.`
+      : null;
+
   const cal = Math.round(meals.reduce((s, m) => s + m.calories, 0));
   const protein = Math.round(meals.reduce((s, m) => s + m.protein, 0));
   const waterMl = water.reduce((s, w) => s + w.amountMl, 0);
@@ -99,6 +122,7 @@ export async function buildUserContext(userId: string): Promise<string> {
     trainingLine,
     `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
     workloadLine,
+    ...(calibrationLine ? [calibrationLine] : []),
     `Active goals: ${
       goals
         .filter((g) => g.status === "active")

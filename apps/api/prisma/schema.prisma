@@ -115,6 +115,8 @@ model Task {
   estMinutes Int? // estimated duration
   reminderLead Int? // minutes before dueDate to send a reminder (0 = at due time, null = off)
   repeat     String? // daily | weekdays | weekly — completing spawns the next occurrence
+  actualMinutes Int? // accumulated focus-timer minutes
+  timerStartedAt DateTime? // set while the focus timer is running
   done       Boolean    @default(false)
   doneAt     DateTime?
   createdAt  DateTime   @default(now())

@@ -1,6 +1,9 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { z } from "zod";
 import { prisma } from "../db";
 import { env } from "../env";
+import { aiConfigured } from "../lib/ai";
+import { estimateFromText } from "../lib/food";
 import { dayString } from "../lib/time";
 
 // Map Health Auto Export metric names → our normalized types.
@@ -109,6 +112,44 @@ function sleepEntries(p: HaePoint): { type: string; value: number }[] {
   return out;
 }
 
+/** Shared token gate for the phone-facing endpoints (never uses the session). */
+async function requireToken(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<{ userId: string } | null> {
+  if (!env.HEALTH_INGEST_TOKEN) {
+    reply.code(503).send({ error: "Ingest is not configured" });
+    return null;
+  }
+  const header = request.headers["x-ingest-token"];
+  const query = (request.query as Record<string, unknown> | undefined)?.token;
+  const token = (Array.isArray(header) ? header[0] : header) ?? query;
+  if (token !== env.HEALTH_INGEST_TOKEN) {
+    reply.code(401).send({ error: "Invalid ingest token" });
+    return null;
+  }
+  const user = await prisma.user.findFirst({ select: { id: true } });
+  if (!user) {
+    reply.code(409).send({ error: "No user to attribute data to" });
+    return null;
+  }
+  return { userId: user.id };
+}
+
+const quickWaterSchema = z.object({
+  amountMl: z.coerce.number().int().min(1).max(5000).default(250),
+});
+const quickWeightSchema = z.object({
+  weightKg: z.coerce.number().min(20).max(400),
+});
+const quickMealSchema = z.object({
+  description: z.string().min(1).max(300),
+  calories: z.coerce.number().min(0).max(6000).optional(),
+  protein: z.coerce.number().min(0).max(500).optional(),
+  carbs: z.coerce.number().min(0).max(1000).optional(),
+  fat: z.coerce.number().min(0).max(500).optional(),
+});
+
 export default async function ingestRoutes(
   app: FastifyInstance,
 ): Promise<void> {
@@ -121,25 +162,9 @@ export default async function ingestRoutes(
       config: { rateLimit: { max: 60, timeWindow: "1 minute" } },
     },
     async (request, reply) => {
-      if (!env.HEALTH_INGEST_TOKEN) {
-        reply.code(503).send({ error: "Health ingest is not configured" });
-        return;
-      }
-      const header = request.headers["x-ingest-token"];
-      const query = (request.query as Record<string, unknown> | undefined)
-        ?.token;
-      const token = (Array.isArray(header) ? header[0] : header) ?? query;
-      if (token !== env.HEALTH_INGEST_TOKEN) {
-        reply.code(401).send({ error: "Invalid ingest token" });
-        return;
-      }
-
-      // Single user: attribute ingested data to the one account.
-      const user = await prisma.user.findFirst({ select: { id: true } });
-      if (!user) {
-        reply.code(409).send({ error: "No user to attribute data to" });
-        return;
-      }
+      const auth = await requireToken(request, reply);
+      if (!auth) return;
+      const user = { id: auth.userId };
 
       const body = request.body as { data?: { metrics?: HaeMetric[] } };
       const metrics = body?.data?.metrics ?? [];
@@ -207,4 +232,90 @@ export default async function ingestRoutes(
       return { ok: true, written };
     },
   );
+
+  // ---- Apple Shortcuts quick-log ------------------------------------------
+  // Same token, tiny bodies — designed for "Get Contents of URL" actions so
+  // water/weight/meals can be logged from the lock screen or by voice.
+
+  app.post("/water", async (request, reply) => {
+    const auth = await requireToken(request, reply);
+    if (!auth) return;
+    const parsed = quickWaterSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      reply.code(400).send({ error: "amountMl must be 1–5000" });
+      return;
+    }
+    await prisma.waterLog.create({
+      data: { userId: auth.userId, amountMl: parsed.data.amountMl },
+    });
+    return { ok: true, loggedMl: parsed.data.amountMl };
+  });
+
+  app.post("/weight", async (request, reply) => {
+    const auth = await requireToken(request, reply);
+    if (!auth) return;
+    const parsed = quickWeightSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      reply.code(400).send({ error: "weightKg must be 20–400" });
+      return;
+    }
+    await prisma.bodyweightEntry.create({
+      data: {
+        userId: auth.userId,
+        weightKg: parsed.data.weightKg,
+        source: "manual",
+      },
+    });
+    return { ok: true, weightKg: parsed.data.weightKg };
+  });
+
+  app.post("/meal", async (request, reply) => {
+    const auth = await requireToken(request, reply);
+    if (!auth) return;
+    const parsed = quickMealSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      reply.code(400).send({ error: "description is required" });
+      return;
+    }
+    let { description } = parsed.data;
+    let { calories, protein, carbs, fat } = parsed.data;
+
+    // No macros given → let Claude estimate from the description.
+    if (calories == null) {
+      if (!aiConfigured()) {
+        reply.code(400).send({
+          error: "Send calories/protein/carbs/fat, or set ANTHROPIC_API_KEY for AI estimates",
+        });
+        return;
+      }
+      const est = await estimateFromText(description);
+      description = est.description || description;
+      calories = est.calories;
+      protein = est.protein;
+      carbs = est.carbs;
+      fat = est.fat;
+    }
+
+    const meal = await prisma.meal.create({
+      data: {
+        userId: auth.userId,
+        description,
+        calories: Math.round(calories),
+        protein: protein ?? 0,
+        carbs: carbs ?? 0,
+        fat: fat ?? 0,
+        source: "text",
+      },
+    });
+    return {
+      ok: true,
+      meal: {
+        description: meal.description,
+        calories: meal.calories,
+        protein: meal.protein,
+        carbs: meal.carbs,
+        fat: meal.fat,
+      },
+    };
+  });
 }

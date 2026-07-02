@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NetWorthChart } from "../components/Charts";
 import { AccountCard } from "../components/money/AccountCard";
 import { AccountSheet, BillSheet } from "../components/money/MoneySheets";
+import { PaymentsReview } from "../components/money/PaymentsReview";
 import { Statements } from "../components/money/Statements";
 import { useBills, useDeleteBill, useMoney } from "../lib/queries";
 
@@ -103,6 +104,9 @@ export function Money() {
 
       {/* Bank statements (Claude-parsed, encrypted at rest) */}
       <Statements />
+
+      {/* AI review of recurring payments & subscriptions */}
+      <PaymentsReview />
 
       <AccountSheet open={acctOpen} onClose={() => setAcctOpen(false)} />
       <BillSheet open={billOpen} onClose={() => setBillOpen(false)} />

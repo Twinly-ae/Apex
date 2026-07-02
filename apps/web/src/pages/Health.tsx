@@ -1,4 +1,4 @@
-import { ChevronRight, Trash2 } from "lucide-react";
+import { ChevronRight, Trash2, Trophy } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { Workout, WorkoutSet } from "@apex/shared";
 import {
@@ -22,6 +22,7 @@ import {
   useGenerateHealthTips,
   useHealth,
   useHealthTips,
+  usePrs,
   useSyncHevy,
   useTrends,
   useWorkouts,
@@ -116,6 +117,51 @@ function WorkoutRow({ w, onDelete }: { w: Workout; onDelete: () => void }) {
         </div>
       )}
     </li>
+  );
+}
+
+function PersonalRecords() {
+  const { data: prs } = usePrs();
+  const [showAll, setShowAll] = useState(false);
+  const list = prs ?? [];
+  if (list.length === 0) return null;
+  const shown = showAll ? list : list.slice(0, 6);
+
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <Trophy className="h-3.5 w-3.5 text-warn" strokeWidth={2} />
+          Personal records
+        </h2>
+        {list.length > 6 && (
+          <button
+            onClick={() => setShowAll((o) => !o)}
+            className="text-xs text-accent active:opacity-70"
+          >
+            {showAll ? "Show less" : `All ${list.length}`}
+          </button>
+        )}
+      </div>
+      <ul className="divide-y divide-line">
+        {shown.map((p) => (
+          <li key={p.exercise} className="flex items-center gap-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate text-text">
+              {p.exercise}
+            </span>
+            <span className="shrink-0 tabular-nums text-text">
+              {p.weightKg}kg × {p.reps}
+            </span>
+            <span className="w-20 shrink-0 text-right text-xs tabular-nums text-muted">
+              1RM ~{Math.round(p.e1rmKg)}kg
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] text-muted">
+        Beating any of these sends you a “New PR” push.
+      </p>
+    </section>
   );
 }
 
@@ -265,6 +311,8 @@ export function Health() {
           </p>
         )}
       </ChartCard>
+
+      <PersonalRecords />
 
       <ChartCard title="Weekly split">
         <TrainingPlanEditor />

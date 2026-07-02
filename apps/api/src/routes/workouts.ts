@@ -9,6 +9,7 @@ import {
 import { prisma } from "../db";
 import { fetchRecentWorkouts, hevyConfigured } from "../integrations/hevy";
 import { parseOr400 } from "../lib/http";
+import { computePrs, detectNewPrs } from "../lib/prs";
 
 type WorkoutWithSets = Prisma.WorkoutGetPayload<{ include: { sets: true } }>;
 
@@ -70,7 +71,7 @@ export default async function workoutRoutes(
         : w.created_at
           ? new Date(w.created_at)
           : undefined;
-      await prisma.workout.create({
+      const created = await prisma.workout.create({
         data: {
           userId: request.userId,
           title: w.title || "Hevy workout",
@@ -90,8 +91,15 @@ export default async function workoutRoutes(
         },
       });
       imported++;
+      // New-PR push (deduped per exercise+workout); never blocks the sync.
+      detectNewPrs(request.userId, created.id).catch(() => {});
     }
     return { connected: true, imported, total: workouts.length };
+  });
+
+  // All-time best set per exercise, ranked by estimated 1RM.
+  app.get("/prs", async (request) => {
+    return computePrs(request.userId);
   });
 
   app.get("/", async (request) => {
@@ -126,6 +134,7 @@ export default async function workoutRoutes(
       },
       include: { sets: true },
     });
+    detectNewPrs(request.userId, workout.id).catch(() => {});
     reply.code(201);
     return serialize(workout);
   });

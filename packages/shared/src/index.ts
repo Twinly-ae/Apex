@@ -250,6 +250,10 @@ export interface Task {
   estMinutes: number | null;
   reminderLead: number | null;
   repeat: TaskRepeat | null;
+  /** Minutes logged with the focus timer. */
+  actualMinutes: number | null;
+  /** Set while the focus timer is running. */
+  timerStartedAt: string | null;
   done: boolean;
   doneAt: string | null;
   createdAt: string;
@@ -486,6 +490,15 @@ export interface Workout {
   notes: string | null;
   source: string;
   sets: WorkoutSet[];
+}
+
+/** All-time best set for one exercise, ranked by estimated 1RM (Epley). */
+export interface PrRecord {
+  exercise: string;
+  weightKg: number;
+  reps: number;
+  e1rmKg: number;
+  performedAt: string;
 }
 
 /* -------------------------------------------------------------------------- */

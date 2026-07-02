@@ -11,7 +11,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Create the dedupe log (unique on userId+dedupeKey) and, only if it was newly
  * created, push the notification. Returns true when a notification was sent.
  */
-async function notifyOnce(
+export async function notifyOnce(
   userId: string,
   kind: string,
   dedupeKey: string,

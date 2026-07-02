@@ -2,6 +2,7 @@ import type { ReviewType } from "@apex/shared";
 import { prisma } from "../db";
 import { runText } from "./ai";
 import { buildUserContext } from "./context";
+import { decrypt } from "./crypto";
 import { computeHealth } from "./health";
 import { dayString, weekStartString } from "./time";
 
@@ -104,6 +105,94 @@ export async function generateHealthTips(
     thinking: true,
   });
   const generatedAt = await setArtifact(userId, "health-tips", dayString(), text);
+  return { text, generatedAt };
+}
+
+/**
+ * AI review of recurring payments: detects merchants that repeat across
+ * months in his imported statements, adds tracked bills, and asks Claude to
+ * flag increases, duplicates, and cancel candidates. Cached per month.
+ */
+export async function generatePaymentsReview(
+  userId: string,
+): Promise<{ text: string; generatedAt: Date }> {
+  const monthKey = dayString().slice(0, 7);
+  const now = new Date();
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1))
+    .toISOString()
+    .slice(0, 10);
+
+  const [bills, txs] = await Promise.all([
+    prisma.bill.findMany({ where: { userId } }),
+    prisma.transaction.findMany({
+      where: { userId, day: { gte: since }, kind: "debit" },
+      select: { day: true, amountAed: true, category: true, descriptionEnc: true },
+    }),
+  ]);
+  if (bills.length === 0 && txs.length === 0) {
+    throw new Error(
+      "No bills or imported statements yet — import a bank statement (Money → Statements) or add bills first.",
+    );
+  }
+
+  // Merchants seen in ≥2 distinct months ≈ recurring payments.
+  const groups = new Map<
+    string,
+    { name: string; months: Set<string>; amounts: number[]; lastDay: string; lastAmount: number }
+  >();
+  for (const t of txs) {
+    let desc = "";
+    try {
+      desc = decrypt(t.descriptionEnc);
+    } catch {
+      continue; // encryption off or unreadable — skip the row
+    }
+    const norm = desc.toLowerCase().replace(/[\d#*]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+    if (!norm) continue;
+    const g = groups.get(norm) ?? {
+      name: desc.slice(0, 40),
+      months: new Set<string>(),
+      amounts: [],
+      lastDay: "",
+      lastAmount: 0,
+    };
+    g.months.add(t.day.slice(0, 7));
+    g.amounts.push(t.amountAed);
+    if (t.day > g.lastDay) {
+      g.lastDay = t.day;
+      g.lastAmount = t.amountAed;
+    }
+    groups.set(norm, g);
+  }
+  const recurring = [...groups.values()]
+    .filter((g) => g.months.size >= 2)
+    .sort((a, b) => b.lastAmount - a.lastAmount)
+    .slice(0, 30);
+
+  const recurringLines =
+    recurring
+      .map((g) => {
+        const avg = g.amounts.reduce((s, n) => s + n, 0) / g.amounts.length;
+        return `${g.name}: seen ${g.amounts.length}x across ${g.months.size} months, avg AED ${Math.round(avg)}, last AED ${Math.round(g.lastAmount)} on ${g.lastDay}`;
+      })
+      .join("\n") || "none detected from statements";
+  const billsLine =
+    bills
+      .map((b) => `${b.name}: AED ${Math.round(b.amountAed)} ${b.cadence}`)
+      .join("; ") || "none tracked";
+
+  const text = await runText({
+    system: `${PERSONA} Review his recurring monthly payments like a sharp CFO. Cover: (1) total estimated monthly recurring spend in AED; (2) each recurring payment worth noting; (3) anything that increased, looks duplicated, or overlaps; (4) what looks cancellable or negotiable and roughly how much that saves per month/year. End with 2–3 concrete actions. Use his real AED numbers; short sections or tight bullets, no preamble.`,
+    messages: [
+      {
+        role: "user",
+        content: `Tracked bills:\n${billsLine}\n\nRecurring merchants from my bank statements (last 3 months):\n${recurringLines}\n\nReview my monthly payments.`,
+      },
+    ],
+    maxTokens: 900,
+    thinking: true,
+  });
+  const generatedAt = await setArtifact(userId, "payments-review", monthKey, text);
   return { text, generatedAt };
 }
 

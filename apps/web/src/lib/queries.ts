@@ -33,6 +33,7 @@ import type {
   UpdateMilestoneInput,
   UpdateTaskInput,
   WaterLog,
+  PrRecord,
   Workout,
 } from "@apex/shared";
 import { api } from "./api";
@@ -294,6 +295,16 @@ export const useUpdateTaskStep = () =>
 export const useDeleteTaskStep = () =>
   useTaskStepMutation((id: string) => api.del<Task>(`/api/tasks/steps/${id}`));
 
+/* ----- Task focus timer ----- */
+export const useStartTaskTimer = () =>
+  useTaskStepMutation((id: string) =>
+    api.post<Task>(`/api/tasks/${id}/timer/start`),
+  );
+export const useStopTaskTimer = () =>
+  useTaskStepMutation((id: string) =>
+    api.post<Task>(`/api/tasks/${id}/timer/stop`),
+  );
+
 /* ---------------------------- Settings ---------------------------- */
 
 export function useSettings() {
@@ -412,6 +423,13 @@ export function useWorkouts() {
   return useQuery({
     queryKey: keys.workouts,
     queryFn: () => api.get<Workout[]>("/api/workouts"),
+  });
+}
+
+export function usePrs() {
+  return useQuery({
+    queryKey: ["prs"],
+    queryFn: () => api.get<PrRecord[]>("/api/workouts/prs"),
   });
 }
 
@@ -690,6 +708,22 @@ export function useGenerateHealthTips() {
   return useMutation({
     mutationFn: () => api.post<AiText>("/api/ai/health-tips"),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-health-tips"] }),
+  });
+}
+
+/* ----- Monthly payments review ----- */
+export function usePaymentsReview() {
+  return useQuery({
+    queryKey: ["ai-payments-review"],
+    queryFn: () => api.get<AiText>("/api/ai/payments-review"),
+  });
+}
+export function useGeneratePaymentsReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<AiText>("/api/ai/payments-review"),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["ai-payments-review"] }),
   });
 }
 export function useGeneratePlan() {

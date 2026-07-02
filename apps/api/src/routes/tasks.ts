@@ -107,6 +107,20 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         done: body.done ?? undefined,
         doneAt:
           body.done === undefined ? undefined : body.done ? new Date() : null,
+        // Completing a task with a running focus timer banks the elapsed time.
+        ...(body.done === true && existing.timerStartedAt
+          ? {
+              actualMinutes:
+                (existing.actualMinutes ?? 0) +
+                Math.max(
+                  1,
+                  Math.round(
+                    (Date.now() - existing.timerStartedAt.getTime()) / 60_000,
+                  ),
+                ),
+              timerStartedAt: null,
+            }
+          : {}),
       },
       include: { steps: { orderBy: { order: "asc" } } },
     });
@@ -160,6 +174,70 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
     });
     return t ? toTask(t) : null;
   }
+
+  // ---- Focus timer ---------------------------------------------------------
+  const elapsedMinutes = (startedAt: Date) =>
+    Math.max(1, Math.round((Date.now() - startedAt.getTime()) / 60_000));
+
+  app.post("/:id/timer/start", async (request, reply) => {
+    const params = parseOr400(idParamSchema, request.params, reply);
+    if (!params) return;
+    const task = await prisma.task.findFirst({
+      where: { id: params.id, userId: request.userId, done: false },
+    });
+    if (!task) {
+      reply.code(404).send({ error: "Task not found" });
+      return;
+    }
+    // Only one timer at a time: stop any other running task first.
+    const running = await prisma.task.findMany({
+      where: {
+        userId: request.userId,
+        timerStartedAt: { not: null },
+        id: { not: task.id },
+      },
+    });
+    for (const r of running) {
+      await prisma.task.update({
+        where: { id: r.id },
+        data: {
+          actualMinutes:
+            (r.actualMinutes ?? 0) + elapsedMinutes(r.timerStartedAt as Date),
+          timerStartedAt: null,
+        },
+      });
+    }
+    if (!task.timerStartedAt) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { timerStartedAt: new Date() },
+      });
+    }
+    return taskWithSteps(task.id);
+  });
+
+  app.post("/:id/timer/stop", async (request, reply) => {
+    const params = parseOr400(idParamSchema, request.params, reply);
+    if (!params) return;
+    const task = await prisma.task.findFirst({
+      where: { id: params.id, userId: request.userId },
+    });
+    if (!task) {
+      reply.code(404).send({ error: "Task not found" });
+      return;
+    }
+    if (task.timerStartedAt) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          actualMinutes:
+            (task.actualMinutes ?? 0) + elapsedMinutes(task.timerStartedAt),
+          timerStartedAt: null,
+        },
+      });
+    }
+    return taskWithSteps(task.id);
+  });
 
   app.post("/:id/steps", async (request, reply) => {
     const params = parseOr400(idParamSchema, request.params, reply);

@@ -15,6 +15,7 @@ import {
 import {
   generateBriefing,
   generateHealthTips,
+  generatePaymentsReview,
   generatePlan,
   generateReview,
   getArtifact,
@@ -159,6 +160,30 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
     const commitments = (request.body as { commitments?: string } | undefined)
       ?.commitments;
     const r = await runAi(reply, () => generatePlan(request.userId, commitments));
+    if (!r) return;
+    return { configured: true, text: r.text, generatedAt: r.generatedAt.toISOString() };
+  });
+
+  /* ----- Monthly payments review ----- */
+  app.get("/payments-review", async (request): Promise<AiText> => {
+    const a = await getArtifact(
+      request.userId,
+      "payments-review",
+      dayString().slice(0, 7),
+    );
+    return {
+      configured: aiConfigured(),
+      text: a?.content ?? "",
+      generatedAt: a ? a.updatedAt.toISOString() : null,
+    };
+  });
+
+  app.post("/payments-review", async (request, reply): Promise<AiText | undefined> => {
+    if (!aiConfigured()) {
+      reply.code(503).send({ error: "AI is not configured" });
+      return;
+    }
+    const r = await runAi(reply, () => generatePaymentsReview(request.userId));
     if (!r) return;
     return { configured: true, text: r.text, generatedAt: r.generatedAt.toISOString() };
   });

@@ -4,20 +4,47 @@ import {
   ChevronDown,
   Lock,
   Pencil,
+  Play,
   Plus,
   Repeat,
+  Square,
+  Timer,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Task } from "@apex/shared";
 import { TaskSheet } from "../components/logging/TaskSheet";
 import {
   useDeleteTask,
+  useStartTaskTimer,
+  useStopTaskTimer,
   useTasks,
   useUpdateTask,
   useUpdateTaskStep,
 } from "../lib/queries";
 import { colorHex, estLabel } from "../lib/taskColors";
+
+/** Re-render every 30s while a timer is running so the elapsed stays live. */
+function useTick(active: boolean) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, [active]);
+}
+
+/** Total focus minutes: banked + the running stretch. */
+function focusMinutes(task: Task): number {
+  let m = task.actualMinutes ?? 0;
+  if (task.timerStartedAt) {
+    m += Math.max(
+      0,
+      Math.round((Date.now() - new Date(task.timerStartedAt).getTime()) / 60_000),
+    );
+  }
+  return m;
+}
 
 const PRIORITY_PILL: Record<number, string> = {
   1: "bg-bad/15 text-bad",
@@ -30,6 +57,8 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   const update = useUpdateTask();
   const del = useDeleteTask();
   const updateStep = useUpdateTaskStep();
+  const startTimer = useStartTaskTimer();
+  const stopTimer = useStopTaskTimer();
   const [open, setOpen] = useState(false);
 
   const steps = task.steps;
@@ -37,6 +66,9 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   const hasSteps = steps.length > 0;
   const accent = colorHex(task.color);
   const est = estLabel(task.estMinutes);
+  const running = task.timerStartedAt != null;
+  useTick(running);
+  const focused = focusMinutes(task);
 
   return (
     <li
@@ -100,9 +132,35 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
                 />
               </span>
             )}
+            {(running || focused > 0) && (
+              <span
+                className={`inline-flex items-center gap-1 tabular-nums ${
+                  running ? "text-good" : "text-muted"
+                }`}
+              >
+                <Timer className="h-3 w-3" strokeWidth={2.5} />
+                {focused}m{task.done ? "" : running ? " · running" : " logged"}
+              </span>
+            )}
           </div>
         </button>
 
+        {!task.done && (
+          <button
+            onClick={() =>
+              running ? stopTimer.mutate(task.id) : startTimer.mutate(task.id)
+            }
+            disabled={startTimer.isPending || stopTimer.isPending}
+            aria-label={running ? "Stop focus timer" : "Start focus timer"}
+            className={`-m-1.5 p-1.5 ${running ? "text-good" : "text-muted active:text-accent"}`}
+          >
+            {running ? (
+              <Square className="h-[18px] w-[18px]" strokeWidth={2} />
+            ) : (
+              <Play className="h-[18px] w-[18px]" strokeWidth={2} />
+            )}
+          </button>
+        )}
         <button
           onClick={() => onEdit(task)}
           aria-label="Edit task"

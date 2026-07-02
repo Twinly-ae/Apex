@@ -114,6 +114,7 @@ model Task {
   color      String? // violet | blue | emerald | amber | rose | slate
   estMinutes Int? // estimated duration
   reminderLead Int? // minutes before dueDate to send a reminder (0 = at due time, null = off)
+  repeat     String? // daily | weekdays | weekly — completing spawns the next occurrence
   done       Boolean    @default(false)
   doneAt     DateTime?
   createdAt  DateTime   @default(now())

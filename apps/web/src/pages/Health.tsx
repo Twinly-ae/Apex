@@ -5,8 +5,10 @@ import {
   AdherenceChart,
   BodyweightChart,
   EnergyChart,
+  HrvChart,
   RestingHrChart,
   SleepChart,
+  SleepStagesChart,
   TrainingChart,
 } from "../components/Charts";
 import { StatCard } from "../components/StatCard";
@@ -317,9 +319,24 @@ export function Health() {
             <BodyweightChart data={trends.bodyweight} />
           </ChartCard>
 
-          {(health?.sleepSeries.length ?? 0) > 1 && (
-            <ChartCard title="Sleep (14d)">
-              <SleepChart data={health?.sleepSeries ?? []} />
+          {(health?.sleepStages.length ?? 0) > 1 ? (
+            <ChartCard title="Sleep stages (14d)">
+              <SleepStagesChart data={health?.sleepStages ?? []} />
+            </ChartCard>
+          ) : (
+            (health?.sleepSeries.length ?? 0) > 1 && (
+              <ChartCard title="Sleep (14d)">
+                <SleepChart data={health?.sleepSeries ?? []} />
+              </ChartCard>
+            )
+          )}
+
+          {(health?.hrvSeries.length ?? 0) > 1 && (
+            <ChartCard title="HRV (14d)">
+              <HrvChart
+                data={health?.hrvSeries ?? []}
+                baseline={health?.hrvBaseline ?? null}
+              />
             </ChartCard>
           )}
 

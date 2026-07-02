@@ -96,6 +96,51 @@ async function checkLogging(userId: string): Promise<void> {
   );
 }
 
+/**
+ * Afternoon macro check-in: if protein or water is under half its target by
+ * 16:00 local, nudge once — there's still time to close the gap before evening.
+ */
+async function checkMacros(
+  userId: string,
+  settings: { proteinTarget: number; waterTargetMl: number } | null,
+): Promise<void> {
+  const hour = localHour();
+  if (hour < 16 || hour >= 19 || !settings) return;
+  const { start, end } = dayRange();
+  const [meals, water] = await Promise.all([
+    prisma.meal.findMany({
+      where: { userId, eatenAt: { gte: start, lt: end } },
+      select: { protein: true },
+    }),
+    prisma.waterLog.findMany({
+      where: { userId, loggedAt: { gte: start, lt: end } },
+      select: { amountMl: true },
+    }),
+  ]);
+  const protein = Math.round(meals.reduce((s, m) => s + m.protein, 0));
+  const waterMl = water.reduce((s, w) => s + w.amountMl, 0);
+
+  const behind: string[] = [];
+  if (protein < settings.proteinTarget * 0.5) {
+    behind.push(`protein ${protein}/${settings.proteinTarget}g`);
+  }
+  if (waterMl < settings.waterTargetMl * 0.5) {
+    behind.push(
+      `water ${(waterMl / 1000).toFixed(1)}/${(settings.waterTargetMl / 1000).toFixed(1)}L`,
+    );
+  }
+  if (behind.length === 0) return;
+
+  await notifyOnce(
+    userId,
+    "macros",
+    `macros:${dayString()}`,
+    "Afternoon check-in",
+    `You're behind on ${behind.join(" and ")} — still time to close the gap.`,
+    "/",
+  );
+}
+
 /** Dubai-local HH:mm for a timestamp (fixed UTC+4, matches lib/time). */
 function dubaiTime(d: Date): string {
   const s = new Date(d.getTime() + 4 * 60 * 60_000);
@@ -146,7 +191,10 @@ export async function runNotificationChecks(): Promise<void> {
     try {
       if (s?.notifyBills ?? true) await checkBills(u.id);
       if (s?.notifyStreak ?? true) await checkStreak(u.id);
-      if (s?.notifyLogging ?? true) await checkLogging(u.id);
+      if (s?.notifyLogging ?? true) {
+        await checkLogging(u.id);
+        await checkMacros(u.id, s);
+      }
       await checkTaskReminders(u.id);
     } catch (err) {
       // Never let one user's failure stop the loop.

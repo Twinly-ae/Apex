@@ -9,6 +9,28 @@ import {
 import { prisma } from "../db";
 import { parseOr400 } from "../lib/http";
 import { toTask } from "../lib/serializers";
+import { localWeekdayMon0 } from "../lib/time";
+
+/**
+ * Next due date for a repeating task, always in the future. Keeps the
+ * time-of-day; "weekdays" skips Sat/Sun (local Dubai weekdays).
+ */
+function nextOccurrence(from: Date, repeat: string, now = new Date()): Date {
+  const d = new Date(from.getTime());
+  const step = () => {
+    if (repeat === "weekly") {
+      d.setUTCDate(d.getUTCDate() + 7);
+    } else {
+      d.setUTCDate(d.getUTCDate() + 1);
+      if (repeat === "weekdays") {
+        while (localWeekdayMon0(d) >= 5) d.setUTCDate(d.getUTCDate() + 1);
+      }
+    }
+  };
+  step();
+  while (d.getTime() <= now.getTime()) step();
+  return d;
+}
 
 export default async function taskRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
@@ -42,6 +64,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         color: body.color ?? null,
         estMinutes: body.estMinutes ?? null,
         reminderLead: body.reminderLead ?? null,
+        repeat: body.repeat ?? null,
       },
       include: { steps: true },
     });
@@ -57,6 +80,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
 
     const existing = await prisma.task.findFirst({
       where: { id: params.id, userId: request.userId },
+      include: { steps: { orderBy: { order: "asc" } } },
     });
     if (!existing) {
       reply.code(404).send({ error: "Not found" });
@@ -79,12 +103,37 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         estMinutes: body.estMinutes === undefined ? undefined : body.estMinutes,
         reminderLead:
           body.reminderLead === undefined ? undefined : body.reminderLead,
+        repeat: body.repeat === undefined ? undefined : body.repeat,
         done: body.done ?? undefined,
         doneAt:
           body.done === undefined ? undefined : body.done ? new Date() : null,
       },
       include: { steps: { orderBy: { order: "asc" } } },
     });
+
+    // Completing a repeating task spawns its next occurrence (steps reset).
+    if (body.done === true && !existing.done && existing.repeat) {
+      await prisma.task.create({
+        data: {
+          userId: request.userId,
+          title: existing.title,
+          notes: existing.notes,
+          dueDate: nextOccurrence(existing.dueDate ?? new Date(), existing.repeat),
+          priority: existing.priority,
+          color: existing.color,
+          estMinutes: existing.estMinutes,
+          reminderLead: existing.reminderLead,
+          repeat: existing.repeat,
+          steps: {
+            create: existing.steps.map((s) => ({
+              title: s.title,
+              estMinutes: s.estMinutes,
+              order: s.order,
+            })),
+          },
+        },
+      });
+    }
     return toTask(task);
   });
 

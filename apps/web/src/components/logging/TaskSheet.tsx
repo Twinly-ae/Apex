@@ -1,6 +1,6 @@
 import { Check, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Task, TaskColor, TaskPriority } from "@apex/shared";
+import type { Task, TaskColor, TaskPriority, TaskRepeat } from "@apex/shared";
 import {
   useAddTask,
   useAddTaskStep,
@@ -33,6 +33,13 @@ const REMINDERS: { value: number | null; label: string }[] = [
   { value: 1440, label: "1 day before" },
 ];
 
+const REPEATS: { value: TaskRepeat | null; label: string }[] = [
+  { value: null, label: "No repeat" },
+  { value: "daily", label: "Daily" },
+  { value: "weekdays", label: "Weekdays (Mon–Fri)" },
+  { value: "weekly", label: "Weekly" },
+];
+
 /** ISO (UTC) → a `datetime-local` value in the browser's local time. */
 function isoToLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -57,6 +64,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
   const [color, setColor] = useState<TaskColor | null>(null);
   const [est, setEst] = useState("");
   const [reminderLead, setReminderLead] = useState<number | null>(null);
+  const [repeat, setRepeat] = useState<TaskRepeat | null>(null);
   const [notes, setNotes] = useState("");
   const [newStep, setNewStep] = useState("");
   const [newStepEst, setNewStepEst] = useState("");
@@ -70,6 +78,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
     setColor(task?.color ?? null);
     setEst(task?.estMinutes ? String(task.estMinutes) : "");
     setReminderLead(task?.reminderLead ?? null);
+    setRepeat(task?.repeat ?? null);
     setNotes(task?.notes ?? "");
     setNewStep("");
     setNewStepEst("");
@@ -97,6 +106,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
       color,
       estMinutes: est ? Math.round(Number(est)) : null,
       reminderLead: due ? reminderLead : null,
+      repeat,
       notes: notes.trim() || null,
     };
     if (task) {
@@ -168,6 +178,25 @@ export function TaskSheet({ open, onClose, task }: Props) {
             Set a due date &amp; time to enable a reminder.
           </p>
         )}
+
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">Repeat</span>
+          <select
+            value={repeat ?? ""}
+            onChange={(e) =>
+              setRepeat(
+                e.target.value === "" ? null : (e.target.value as TaskRepeat),
+              )
+            }
+            className={selectClass}
+          >
+            {REPEATS.map((r) => (
+              <option key={r.label} value={r.value ?? ""}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
         {/* Colour + estimate */}
         <div className="grid grid-cols-2 gap-3">

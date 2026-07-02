@@ -1,9 +1,14 @@
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Meal } from "@apex/shared";
 import { MealSheet } from "../components/logging/MealSheet";
-import { useDeleteMeal, useMealHistory, useSettings } from "../lib/queries";
+import {
+  useAddMeal,
+  useDeleteMeal,
+  useMealHistory,
+  useSettings,
+} from "../lib/queries";
 
 const SOURCE_LABEL: Record<string, string> = {
   text: "AI",
@@ -35,6 +40,7 @@ function time(iso: string): string {
 
 function MealRow({ m }: { m: Meal }) {
   const del = useDeleteMeal();
+  const add = useAddMeal();
   return (
     <li className="flex items-start gap-3 py-2.5">
       <div className="min-w-0 flex-1">
@@ -48,6 +54,22 @@ function MealRow({ m }: { m: Meal }) {
         <div className="tabular-nums text-text">{m.calories}</div>
         <div className="text-[10px] text-muted">kcal</div>
       </div>
+      <button
+        onClick={() =>
+          add.mutate({
+            description: m.description,
+            calories: m.calories,
+            protein: m.protein,
+            carbs: m.carbs,
+            fat: m.fat,
+          })
+        }
+        disabled={add.isPending}
+        className="-m-1 p-1 text-muted hover:text-accent disabled:opacity-50"
+        aria-label="Log this meal again now"
+      >
+        <RotateCcw className="h-4 w-4" strokeWidth={2} />
+      </button>
       <button
         onClick={() => del.mutate(m.id)}
         className="-m-1 p-1 text-muted hover:text-bad"

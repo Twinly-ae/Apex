@@ -141,6 +141,14 @@ export function useMealHistory(days = 7) {
   });
 }
 
+export function useRecentMeals(enabled = true) {
+  return useQuery({
+    queryKey: ["meals-recent"],
+    queryFn: () => api.get<Meal[]>("/api/meals/recent"),
+    enabled,
+  });
+}
+
 export function useAddMeal() {
   const qc = useQueryClient();
   const invalidateDaily = useInvalidateDaily();
@@ -149,6 +157,7 @@ export function useAddMeal() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["meals"] });
       qc.invalidateQueries({ queryKey: ["meal-history"] });
+      qc.invalidateQueries({ queryKey: ["meals-recent"] });
       invalidateDaily();
     },
   });
@@ -615,6 +624,7 @@ import type {
   AiChatMessage,
   AiText,
   Business,
+  BusinessPnl,
   BusinessSummary,
   CreateBusinessInput,
   CreateTwinlySaleInput,
@@ -730,6 +740,13 @@ export function useBusinesses() {
   return useQuery({
     queryKey: ["businesses"],
     queryFn: () => api.get<BusinessSummary[]>("/api/businesses"),
+  });
+}
+
+export function useBusinessPnl(months = 6) {
+  return useQuery({
+    queryKey: ["business-pnl", months],
+    queryFn: () => api.get<BusinessPnl[]>(`/api/businesses/pnl?months=${months}`),
   });
 }
 function useBusinessMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {

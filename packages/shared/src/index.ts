@@ -186,6 +186,9 @@ export type TaskColor = (typeof TASK_COLORS)[number];
 // 0 = at due time, up to 7 days (10080 min) before; null = no reminder.
 const reminderLeadSchema = z.number().int().min(0).max(10080).nullable();
 
+export const taskRepeatSchema = z.enum(["daily", "weekdays", "weekly"]);
+export type TaskRepeat = z.infer<typeof taskRepeatSchema>;
+
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(2000).nullable().optional(),
@@ -194,6 +197,7 @@ export const createTaskSchema = z.object({
   color: taskColorSchema.optional(),
   estMinutes: z.number().int().min(0).max(10000).nullable().optional(),
   reminderLead: reminderLeadSchema.optional(),
+  repeat: taskRepeatSchema.nullable().optional(),
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
@@ -206,6 +210,7 @@ export const updateTaskSchema = z
     color: taskColorSchema,
     estMinutes: z.number().int().min(0).max(10000).nullable(),
     reminderLead: reminderLeadSchema,
+    repeat: taskRepeatSchema.nullable(),
     done: z.boolean(),
   })
   .partial();
@@ -244,6 +249,7 @@ export interface Task {
   color: TaskColor | null;
   estMinutes: number | null;
   reminderLead: number | null;
+  repeat: TaskRepeat | null;
   done: boolean;
   doneAt: string | null;
   createdAt: string;
@@ -622,6 +628,15 @@ export interface HealthPoint {
   value: number;
 }
 
+/** One night's sleep-stage breakdown in hours (0 when the stage wasn't reported). */
+export interface SleepStagePoint {
+  date: string;
+  deep: number;
+  core: number;
+  rem: number;
+  awake: number;
+}
+
 /** 7-day wellbeing averages. */
 export interface HealthWeekly {
   avgSleepHours: number | null;
@@ -658,6 +673,10 @@ export interface HealthResponse {
   sleepEfficiency: number | null;
   sleepSeries: HealthPoint[];
   rhrSeries: HealthPoint[];
+  /** 14-day HRV trend (ms). */
+  hrvSeries: HealthPoint[];
+  /** 14-day sleep-stage breakdown for the stacked chart. */
+  sleepStages: SleepStagePoint[];
   weekly: HealthWeekly;
   energySeries: EnergyPoint[];
   updatedAt: string | null;
@@ -825,6 +844,21 @@ export interface BusinessSummary extends Business {
   monthOrders: number;
   today: TwinlySale | null;
   recent: TwinlySale[];
+}
+
+/** One month of a business's P&L. Expenses = overheads (Notion-synced). */
+export interface PnlMonth {
+  month: string; // YYYY-MM
+  revenueAed: number;
+  costAed: number;
+  expensesAed: number;
+  profitAed: number;
+}
+
+export interface BusinessPnl {
+  id: string;
+  name: string;
+  months: PnlMonth[];
 }
 
 /* -------------------------------------------------------------------------- */

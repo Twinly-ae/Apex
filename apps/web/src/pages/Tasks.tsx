@@ -5,6 +5,7 @@ import {
   Lock,
   Pencil,
   Plus,
+  Repeat,
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
@@ -82,6 +83,12 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
                 {task.reminderLead != null && (
                   <Bell className="h-3 w-3 text-accent" strokeWidth={2.5} />
                 )}
+              </span>
+            )}
+            {task.repeat && (
+              <span className="inline-flex items-center gap-1 text-accent">
+                <Repeat className="h-3 w-3" strokeWidth={2.5} />
+                {task.repeat}
               </span>
             )}
             {hasSteps && (

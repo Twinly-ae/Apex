@@ -114,6 +114,25 @@ export default async function mealRoutes(app: FastifyInstance): Promise<void> {
     return out;
   });
 
+  // GET /api/meals/recent — most recent distinct meals, for one-tap re-logging.
+  app.get("/recent", async (request) => {
+    const meals = await prisma.meal.findMany({
+      where: { userId: request.userId },
+      orderBy: { eatenAt: "desc" },
+      take: 120,
+    });
+    const seen = new Set<string>();
+    const out = [];
+    for (const m of meals) {
+      const key = m.description.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(toMeal(m));
+      if (out.length >= 8) break;
+    }
+    return out;
+  });
+
   // GET /api/meals?date=YYYY-MM-DD  (defaults to today)
   app.get("/", async (request) => {
     const day = dayStringSchema.optional().safeParse(

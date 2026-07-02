@@ -3,6 +3,7 @@ import type {
   HealthPoint,
   HealthResponse,
   HealthSummary,
+  SleepStagePoint,
 } from "@apex/shared";
 import { prisma } from "../db";
 import { dayBefore, dayString } from "./time";
@@ -89,6 +90,7 @@ export async function computeHealth(
   const stepsByDay = new Map<string, number>();
   const remByDay = new Map<string, number>();
   const deepByDay = new Map<string, number>();
+  const coreByDay = new Map<string, number>();
   const awakeByDay = new Map<string, number>();
   const inBedByDay = new Map<string, number>();
   // HRV & respiratory rate are averaged per day (sum + count).
@@ -122,6 +124,8 @@ export async function computeHealth(
       remByDay.set(m.day, (remByDay.get(m.day) ?? 0) + m.value);
     } else if (m.type === "sleep_deep") {
       deepByDay.set(m.day, (deepByDay.get(m.day) ?? 0) + m.value);
+    } else if (m.type === "sleep_core") {
+      coreByDay.set(m.day, (coreByDay.get(m.day) ?? 0) + m.value);
     } else if (m.type === "sleep_awake") {
       awakeByDay.set(m.day, (awakeByDay.get(m.day) ?? 0) + m.value);
     } else if (m.type === "sleep_in_bed") {
@@ -278,13 +282,27 @@ export async function computeHealth(
   // ---- 14-day series ------------------------------------------------------
   const sleepSeries: HealthPoint[] = [];
   const rhrSeries: HealthPoint[] = [];
+  const hrvSeries: HealthPoint[] = [];
+  const sleepStages: SleepStagePoint[] = [];
   for (let i = 13; i >= 0; i--) {
     const d = dayString(dayBefore(i));
     if (sleepByDay.has(d)) {
-      sleepSeries.push({ date: d, value: Math.round((sleepByDay.get(d) as number) * 10) / 10 });
+      sleepSeries.push({ date: d, value: round1(sleepByDay.get(d) as number) });
     }
     if (rhrByDay.has(d)) {
       rhrSeries.push({ date: d, value: Math.round(rhrByDay.get(d) as number) });
+    }
+    if (hrvByDay.has(d)) {
+      hrvSeries.push({ date: d, value: Math.round(hrvByDay.get(d) as number) });
+    }
+    if (remByDay.has(d) || deepByDay.has(d) || coreByDay.has(d)) {
+      sleepStages.push({
+        date: d,
+        deep: round1(deepByDay.get(d) ?? 0),
+        core: round1(coreByDay.get(d) ?? 0),
+        rem: round1(remByDay.get(d) ?? 0),
+        awake: round1(awakeByDay.get(d) ?? 0),
+      });
     }
   }
 
@@ -356,6 +374,8 @@ export async function computeHealth(
     sleepEfficiency,
     sleepSeries,
     rhrSeries,
+    hrvSeries,
+    sleepStages,
     weekly,
     energySeries,
     updatedAt: summary.updatedAt,

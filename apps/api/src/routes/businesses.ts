@@ -5,9 +5,11 @@ import type {
 import type { FastifyInstance } from "fastify";
 import {
   type Business,
+  type BusinessPnl,
   type BusinessSummary,
   createBusinessSchema,
   createTwinlySaleSchema,
+  type PnlMonth,
   type TwinlySale,
   updateBusinessSchema,
 } from "@apex/shared";
@@ -83,6 +85,66 @@ export default async function businessRoutes(
       });
     }
     return out;
+  });
+
+  // GET /api/businesses/pnl?months=6 — monthly revenue / costs / expenses /
+  // profit per business. Notion-synced expenses are overheads of the default
+  // (first) business, since that's the Twinly ledger they come from.
+  app.get("/pnl", async (request): Promise<BusinessPnl[]> => {
+    const raw = Number(
+      (request.query as Record<string, unknown> | undefined)?.months,
+    );
+    const monthsBack = Math.min(Math.max(Number.isFinite(raw) ? raw : 6, 1), 24);
+
+    // The month keys, oldest → newest, ending this month.
+    const now = new Date();
+    const keys: string[] = [];
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      keys.push(d.toISOString().slice(0, 7));
+    }
+    const since = `${keys[0]}-01`;
+
+    const businesses = await ensureBusinesses(request.userId);
+    const [sales, expenses] = await Promise.all([
+      prisma.twinlySale.findMany({
+        where: { userId: request.userId, day: { gte: since } },
+        select: { businessId: true, day: true, revenueAed: true, costAed: true },
+      }),
+      prisma.twinlyExpense.findMany({
+        where: { userId: request.userId, date: { gte: new Date(`${since}T00:00:00Z`) } },
+        select: { date: true, amountAed: true },
+      }),
+    ]);
+
+    const expByMonth = new Map<string, number>();
+    for (const e of expenses) {
+      if (!e.date) continue;
+      const m = e.date.toISOString().slice(0, 7);
+      expByMonth.set(m, (expByMonth.get(m) ?? 0) + e.amountAed);
+    }
+
+    return businesses.map((b, idx) => {
+      const months: PnlMonth[] = keys.map((month) => {
+        let revenueAed = 0;
+        let costAed = 0;
+        for (const s of sales) {
+          if (s.businessId === b.id && s.day.slice(0, 7) === month) {
+            revenueAed += s.revenueAed;
+            costAed += s.costAed;
+          }
+        }
+        const expensesAed = idx === 0 ? (expByMonth.get(month) ?? 0) : 0;
+        return {
+          month,
+          revenueAed: round2(revenueAed),
+          costAed: round2(costAed),
+          expensesAed: round2(expensesAed),
+          profitAed: round2(revenueAed - costAed - expensesAed),
+        };
+      });
+      return { id: b.id, name: b.name, months };
+    });
   });
 
   app.post("/", async (request, reply) => {

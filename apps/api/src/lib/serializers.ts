@@ -12,6 +12,7 @@ import type {
   Task,
   TaskColor,
   TaskPriority,
+  TaskRepeat,
   WaterLog,
 } from "@apex/shared";
 
@@ -55,6 +56,7 @@ export function toTask(t: DbTask & { steps?: DbTaskStep[] }): Task {
     color: (t.color as TaskColor | null) ?? null,
     estMinutes: t.estMinutes,
     reminderLead: t.reminderLead,
+    repeat: (t.repeat as TaskRepeat | null) ?? null,
     done: t.done,
     doneAt: t.doneAt ? t.doneAt.toISOString() : null,
     createdAt: t.createdAt.toISOString(),

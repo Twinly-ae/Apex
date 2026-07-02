@@ -22,6 +22,7 @@ import {
   useBriefing,
   useGenerateBriefing,
   useGeneratePlan,
+  useHealth,
   usePlan,
   useSyncHevy,
   useToday,
@@ -61,9 +62,14 @@ export function Today() {
   const plan = usePlan();
   const genPlan = useGeneratePlan();
   const syncHevy = useSyncHevy();
+  const { data: health } = useHealth();
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const aiOn = briefing.data?.configured ?? false;
+  const lowRecovery =
+    health?.scores.recovery != null && health.scores.recovery < 34
+      ? health.scores.recovery
+      : null;
 
   if (isLoading || !data) {
     return (
@@ -301,6 +307,14 @@ export function Today() {
             <span className="text-sm text-muted">Recover well</span>
           )}
         </div>
+
+        {/* Recovery-aware advisory on training days */}
+        {lowRecovery != null && data.plannedWorkout && !data.plannedWorkoutDone && (
+          <p className="mt-3 rounded-xl bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn">
+            Recovery is low ({lowRecovery}) — consider lighter loads or extra
+            warm-up today.
+          </p>
+        )}
 
         {/* Sync feedback + manual fallback */}
         {data.plannedWorkout && !data.plannedWorkoutDone && (

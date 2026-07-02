@@ -4,6 +4,7 @@ import type {
   EnergyPoint,
   HealthPoint,
   NetWorthPoint,
+  SleepStagePoint,
   TrainingWeekPoint,
 } from "@apex/shared";
 import {
@@ -214,6 +215,94 @@ export function RestingHrChart({ data }: { data: HealthPoint[] }) {
         <Tooltip {...TOOLTIP} />
         <Line type="monotone" dataKey="bpm" stroke="#fb7185" strokeWidth={2} dot={false} />
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function HrvChart({
+  data,
+  baseline,
+}: {
+  data: HealthPoint[];
+  baseline: number | null;
+}) {
+  if (data.length < 2) {
+    return <Empty msg="HRV trend appears after a few days of data." />;
+  }
+  const points = data.map((d) => ({ label: d.date.slice(5), ms: d.value }));
+  return (
+    <ResponsiveContainer width="100%" height={160}>
+      <LineChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -18 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={20}
+        />
+        <YAxis
+          tick={AXIS}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+          domain={["dataMin - 5", "dataMax + 5"]}
+        />
+        <Tooltip {...TOOLTIP} />
+        {baseline != null && (
+          <ReferenceLine y={baseline} stroke="#9393a6" strokeDasharray="4 4" />
+        )}
+        <Line type="monotone" dataKey="ms" stroke="#34d399" strokeWidth={2} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Stage colors validated for the dark surface (CVD-safe, in-band, ≥3:1).
+const STAGE_COLORS = {
+  deep: "#7c6bff",
+  core: "#0284c7",
+  rem: "#0d9488",
+  awake: "#f43f5e",
+} as const;
+
+export function SleepStagesChart({ data }: { data: SleepStagePoint[] }) {
+  if (data.length < 2) {
+    return <Empty msg="Sleep stages appear after a few nights of watch data." />;
+  }
+  const points = data.map((d) => ({
+    label: d.date.slice(5),
+    Deep: d.deep,
+    Core: d.core,
+    REM: d.rem,
+    Awake: d.awake,
+  }));
+  const gap = { stroke: "#14141d", strokeWidth: 1.5 };
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -22 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={12}
+        />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} width={36} />
+        <Tooltip {...TOOLTIP} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Bar dataKey="Deep" stackId="sleep" fill={STAGE_COLORS.deep} {...gap} />
+        <Bar dataKey="Core" stackId="sleep" fill={STAGE_COLORS.core} {...gap} />
+        <Bar dataKey="REM" stackId="sleep" fill={STAGE_COLORS.rem} {...gap} />
+        <Bar
+          dataKey="Awake"
+          stackId="sleep"
+          fill={STAGE_COLORS.awake}
+          radius={[3, 3, 0, 0]}
+          {...gap}
+        />
+      </BarChart>
     </ResponsiveContainer>
   );
 }

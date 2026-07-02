@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { BusinessCard } from "../components/businesses/BusinessCard";
+import { PnlCard } from "../components/businesses/PnlCard";
 import { TwinlyExpenses } from "../components/twinly/TwinlyExpenses";
 import {
   useAddBusiness,
@@ -164,6 +165,9 @@ export function Businesses() {
       ) : (
         (businesses ?? []).map((b) => <BusinessCard key={b.id} b={b} />)
       )}
+
+      {/* Monthly P&L per business */}
+      <PnlCard />
 
       {/* Notion business expenses (still a single Notion database) */}
       <TwinlyExpenses />

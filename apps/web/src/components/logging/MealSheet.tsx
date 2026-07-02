@@ -1,4 +1,4 @@
-import { Barcode, Camera, ImagePlus } from "lucide-react";
+import { Barcode, Camera, History, ImagePlus } from "lucide-react";
 import { useState } from "react";
 import type { MealEstimate, MealSource } from "@apex/shared";
 import {
@@ -6,6 +6,7 @@ import {
   useAnalyzePhoto,
   useAnalyzeText,
   useBarcodeLookup,
+  useRecentMeals,
 } from "../../lib/queries";
 import { Sheet, inputClass, primaryButtonClass } from "../ui/Sheet";
 import { BarcodeScanner } from "./BarcodeScanner";
@@ -74,6 +75,7 @@ export function MealSheet({ open, onClose }: Props) {
   const analyzeText = useAnalyzeText();
   const analyzePhoto = useAnalyzePhoto();
   const barcode = useBarcodeLookup();
+  const { data: recent } = useRecentMeals(open);
 
   const [mode, setMode] = useState<Mode>("describe");
   const [prompt, setPrompt] = useState(""); // text/barcode input
@@ -171,6 +173,41 @@ export function MealSheet({ open, onClose }: Props) {
             </button>
           ))}
         </div>
+
+        {/* One-tap re-log from recent meals */}
+        {(recent?.length ?? 0) > 0 && (
+          <div>
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted">
+              <History className="h-3.5 w-3.5" strokeWidth={2} />
+              Recent — tap to fill
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {(recent ?? []).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    applyEstimate({
+                      description: m.description,
+                      calories: m.calories,
+                      protein: m.protein,
+                      carbs: m.carbs,
+                      fat: m.fat,
+                    });
+                    setMode("manual");
+                    setError(null);
+                  }}
+                  className="shrink-0 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs text-text active:opacity-80"
+                >
+                  {m.description.length > 24
+                    ? `${m.description.slice(0, 24)}…`
+                    : m.description}
+                  <span className="text-muted"> · {m.calories}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Per-mode input */}
         {mode === "describe" && (

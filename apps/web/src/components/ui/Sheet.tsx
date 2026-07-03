@@ -33,21 +33,23 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
       aria-label={title}
     >
       <button
-        className="absolute inset-0 bg-black/60 animate-fade-in"
+        className="absolute inset-0 bg-black/70 backdrop-blur-[2px] animate-fade-in"
         onClick={onClose}
         aria-label="Close"
         tabIndex={-1}
       />
-      <div className="relative w-full max-w-md rounded-t-2xl border border-line bg-surface p-5 pb-8 safe-bottom animate-sheet-up">
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line" />
+      <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-line/70 bg-surface p-5 pb-8 shadow-float safe-bottom animate-sheet-up">
+        <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-line" />
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text">{title}</h2>
+          <h2 className="font-display text-lg font-bold tracking-tight text-text">
+            {title}
+          </h2>
           <button
             onClick={onClose}
-            className="-m-2 p-2 text-muted hover:text-text"
+            className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 text-muted active:text-text"
             aria-label="Close"
           >
-            <X className="h-5 w-5" strokeWidth={2} />
+            <X className="h-4 w-4" strokeWidth={2.5} />
           </button>
         </div>
         {children}
@@ -58,10 +60,10 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
 
 /** Shared input styling — large tap targets, 16px text (no iOS zoom). */
 export const inputClass =
-  "w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-text placeholder:text-muted outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30";
+  "w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-text placeholder:text-muted/70 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30";
 
 export const primaryButtonClass =
-  "w-full rounded-xl bg-gradient-to-br from-accent to-accent-strong px-4 py-3.5 text-center font-semibold text-white shadow-glow transition active:scale-[0.99] active:opacity-90 disabled:opacity-50 disabled:shadow-none";
+  "w-full rounded-2xl bg-gradient-to-br from-accent to-accent-strong px-4 py-3.5 text-center font-semibold text-white shadow-glow transition active:scale-[0.98] active:opacity-90 disabled:opacity-50 disabled:shadow-none";
 
 /** Select styling: hides the native chevron and draws our own (see index.css). */
 export const selectClass = `${inputClass} appearance-none pr-10 select-chevron`;

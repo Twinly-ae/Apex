@@ -240,7 +240,7 @@ export function Health() {
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-text">Health</h1>
+        <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Health</h1>
         <div className="flex rounded-full border border-line bg-surface p-0.5 text-sm">
           <button
             onClick={() => setView("overview")}

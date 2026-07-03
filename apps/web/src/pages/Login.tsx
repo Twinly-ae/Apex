@@ -20,42 +20,72 @@ export function Login() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6 safe-top safe-bottom">
-      <div className="mb-8 text-center">
-        <img src="/favicon.svg" alt="" className="mx-auto h-16 w-16" />
-        <h1 className="mt-4 text-2xl font-semibold text-text">Apex</h1>
-        <p className="mt-1 text-sm text-muted">Your private command center.</p>
+    <div className="relative mx-auto flex min-h-full max-w-md flex-col justify-center overflow-hidden px-6 safe-top safe-bottom">
+      {/* Ambient brand glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[560px] -translate-x-1/2 rounded-full opacity-60 blur-3xl"
+        style={{
+          background:
+            "radial-gradient(closest-side, rgba(124,107,255,0.45), rgba(93,68,245,0.15), transparent)",
+        }}
+      />
+
+      <div className="relative mb-10 text-center">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-accent to-accent-strong shadow-glow">
+          <img src="/favicon.svg" alt="" className="h-11 w-11" />
+        </div>
+        <h1 className="mt-6 font-display text-4xl font-bold tracking-tight text-text">
+          Apex
+        </h1>
+        <p className="mx-auto mt-2 max-w-[240px] text-sm leading-relaxed text-muted">
+          Training, nutrition, money and focus — one command center.
+        </p>
       </div>
 
-      <form onSubmit={submit} className="space-y-3">
-        <input
-          type="email"
-          autoComplete="username"
-          inputMode="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          className={inputClass}
-          required
-        />
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          className={inputClass}
-          required
-        />
+      <form onSubmit={submit} className="relative space-y-3">
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-muted">
+            Email
+          </span>
+          <input
+            type="email"
+            autoComplete="username"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={inputClass}
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-muted">
+            Password
+          </span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className={inputClass}
+            required
+          />
+        </label>
         {error && <p className="text-center text-sm text-bad">{error}</p>}
         <button
           type="submit"
           disabled={login.isPending}
-          className={primaryButtonClass}
+          className={`${primaryButtonClass} !mt-5`}
         >
           {login.isPending ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <p className="relative mt-10 text-center text-[11px] text-muted/70">
+        Private by design — your data stays on your server.
+      </p>
     </div>
   );
 }

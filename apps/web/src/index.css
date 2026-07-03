@@ -14,11 +14,26 @@ body,
 
 body {
   margin: 0;
-  background: #0a0a0f;
-  color: #ececf1;
+  color: #f0f0f5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
+  /* Deep base with a faint violet aurora up top — gives the whole app depth. */
+  background-color: #08080d;
+  background-image:
+    radial-gradient(1100px 480px at 50% -220px, rgba(124, 107, 255, 0.14), transparent 70%),
+    radial-gradient(700px 340px at 110% 0%, rgba(93, 68, 245, 0.06), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Uniform tactile press for buttons/links (opt-in via .pressable) */
+.pressable {
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.pressable:active {
+  transform: scale(0.96);
+  opacity: 0.9;
 }
 
 ::selection {
@@ -52,8 +67,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Native <select>: dark option list + a custom chevron via .select-chevron */
 select option {
-  background: #14141d;
-  color: #ececf1;
+  background: #111119;
+  color: #f0f0f5;
 }
 .select-chevron {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239393a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

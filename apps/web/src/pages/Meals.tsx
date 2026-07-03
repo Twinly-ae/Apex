@@ -106,7 +106,7 @@ export function Meals() {
           >
             <ArrowLeft className="h-5 w-5" strokeWidth={2} />
           </Link>
-          <h1 className="text-2xl font-semibold text-text">Food log</h1>
+          <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Food log</h1>
         </div>
         <button
           onClick={() => setOpen(true)}

@@ -618,7 +618,7 @@ export function Settings() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold text-text">Settings</h1>
+      <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Settings</h1>
 
       <TargetsCard />
       <IntegrationsCard />

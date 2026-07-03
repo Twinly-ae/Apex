@@ -15,7 +15,7 @@ export function Goals() {
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text">Goals</h1>
+        <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Goals</h1>
         <button
           onClick={() => setGoalSheet(true)}
           className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3.5 py-2 text-sm font-semibold text-white shadow-glow active:scale-[0.99]"

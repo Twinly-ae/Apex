@@ -12,7 +12,6 @@ import type { Task } from "@apex/shared";
 import { DayPlanBlocks } from "../components/DayPlanBlocks";
 import { HabitsRow } from "../components/HabitsRow";
 import { MacroBar } from "../components/MacroBar";
-import { QuickLogRow } from "../components/QuickLogRow";
 import { StatCard } from "../components/StatCard";
 import { WeeklyReview } from "../components/money/WeeklyReview";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
@@ -92,24 +91,24 @@ export function Today() {
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold text-text">
-            {data.greeting}
-          </h1>
-          <p className="text-sm text-muted">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             {formatDate(`${data.date}T00:00:00`)}
           </p>
+          <h1 className="mt-0.5 truncate font-display text-[26px] font-bold leading-tight tracking-tight text-text">
+            {data.greeting}
+          </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link
             to="/day"
             aria-label="History"
-            className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-muted active:opacity-80"
+            className="pressable grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-muted"
           >
             <History className="h-[18px] w-[18px]" strokeWidth={2} />
           </Link>
           <Link
             to="/coach"
-            className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent active:opacity-80"
+            className="pressable flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent"
           >
             <Sparkles className="h-4 w-4" strokeWidth={2} />
             Coach
@@ -225,9 +224,11 @@ export function Today() {
                 strokeWidth={2.5}
               />
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-                  Today's focus
-                </div>
+                {aiOn && (
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+                    Today's focus
+                  </div>
+                )}
                 <p className="mt-0.5 text-sm leading-relaxed text-text">
                   {data.todaysFocus}
                 </p>
@@ -252,7 +253,6 @@ export function Today() {
         </section>
       )}
 
-      <QuickLogRow defaultKg={data.latestBodyweightKg} />
 
       {/* Top priorities */}
       <section>
@@ -264,7 +264,7 @@ export function Today() {
         </div>
         {data.topPriorities.length === 0 ? (
           <p className="py-3 text-sm text-muted">
-            Nothing queued — tap “Task” above to add one.
+            Nothing queued — tap the + below to add a task.
           </p>
         ) : (
           <ul className="divide-y divide-line">

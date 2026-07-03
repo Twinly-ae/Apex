@@ -18,7 +18,7 @@ export function Money() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-text">Money</h1>
+      <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Money</h1>
 
       {/* Net worth */}
       <section className="rounded-2xl border border-line bg-surface p-4">

@@ -34,7 +34,7 @@ export function Coach() {
 
   return (
     <div className="flex min-h-[calc(100vh-9rem)] flex-col">
-      <h1 className="mb-3 text-2xl font-semibold text-text">Coach</h1>
+      <h1 className="mb-3 font-display text-[26px] font-bold leading-tight tracking-tight text-text">Coach</h1>
 
       {data && !data.configured && (
         <p className="mb-3 rounded-xl border border-line bg-surface p-3 text-sm text-muted">
@@ -97,7 +97,7 @@ export function Coach() {
           e.preventDefault();
           void submit(text);
         }}
-        className="sticky bottom-0 flex gap-2 bg-bg/95 py-2 backdrop-blur"
+        className="sticky bottom-24 flex gap-2 rounded-2xl bg-bg/95 py-2 backdrop-blur"
       >
         <input
           value={text}

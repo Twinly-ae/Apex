@@ -75,7 +75,7 @@ export function Day() {
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         </Link>
-        <h1 className="text-2xl font-semibold text-text">History</h1>
+        <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">History</h1>
       </header>
 
       {/* Date selector */}

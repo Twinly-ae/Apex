@@ -2,6 +2,18 @@ import { Check } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { NotificationPrefs, SettingsInput } from "@apex/shared";
 import { ApiError, api } from "../lib/api";
+import { selectClass } from "../components/ui/Sheet";
+import {
+  HOME_SECTIONS,
+  PAGES,
+  getHiddenSections,
+  getHomeId,
+  getNavSlots,
+  setHomeId,
+  setNavSlot,
+  setSectionHidden,
+  useLayoutVersion,
+} from "../lib/layout";
 import {
   ACCENTS,
   TEXT_SIZES,
@@ -255,6 +267,71 @@ function ToggleRow({
       </div>
       <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
+  );
+}
+
+function HomeNavCard() {
+  useLayoutVersion();
+  const home = getHomeId();
+  const slots = getNavSlots();
+  const hidden = getHiddenSections();
+
+  return (
+    <Card title="Home & navigation">
+      <label className="block">
+        <span className="mb-1.5 block text-sm text-text">
+          Home page <span className="text-xs text-muted">(opens on launch)</span>
+        </span>
+        <select
+          value={home}
+          onChange={(e) => setHomeId(e.target.value)}
+          className={selectClass}
+        >
+          {PAGES.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="mt-4">
+        <div className="mb-1.5 text-sm text-text">
+          Tab bar{" "}
+          <span className="text-xs text-muted">
+            (3 slots — everything else lives in More)
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {slots.map((slot, i) => (
+            <select
+              key={i}
+              value={slot}
+              onChange={(e) => setNavSlot(i, e.target.value)}
+              className={`${selectClass} !px-2 text-sm`}
+            >
+              {PAGES.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-line pt-2">
+        <div className="mb-1 text-sm text-text">Today page sections</div>
+        {HOME_SECTIONS.map((s) => (
+          <ToggleRow
+            key={s.id}
+            label={s.label}
+            checked={!hidden.has(s.id)}
+            onChange={(v) => setSectionHidden(s.id, !v)}
+          />
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -788,6 +865,7 @@ export function Settings() {
 
       <TargetsCard />
       <AppearanceCard />
+      <HomeNavCard />
       <AiCoachCard />
       <IntegrationsCard />
       <AppleHealthCard />

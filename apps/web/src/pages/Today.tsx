@@ -16,6 +16,7 @@ import { StatCard } from "../components/StatCard";
 import { WeeklyReview } from "../components/money/WeeklyReview";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { formatDate, kg, liters } from "../lib/format";
+import { getHiddenSections, useLayoutVersion } from "../lib/layout";
 import { colorHex, estLabel } from "../lib/taskColors";
 import {
   useBriefing,
@@ -64,6 +65,8 @@ export function Today() {
   const { data: health } = useHealth();
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  useLayoutVersion();
+  const hidden = getHiddenSections();
   const aiOn = briefing.data?.configured ?? false;
   const lowRecovery =
     health?.scores.recovery != null && health.scores.recovery < 34
@@ -117,6 +120,7 @@ export function Today() {
       </header>
 
       {/* HERO — the one number that matters: how much can I still eat, + protein */}
+      {!hidden.has("energy") && (
       <section className="rounded-3xl border border-line bg-gradient-to-br from-surface to-surface-2 p-5 shadow-card">
         <div className="flex items-center justify-between">
           <span className={LABEL}>Energy left</span>
@@ -162,8 +166,10 @@ export function Today() {
           />
         </div>
       </section>
+      )}
 
       {/* Morning briefing — Claude-written when configured, else rules-based */}
+      {!hidden.has("briefing") && (
       <section className="rounded-2xl border border-line bg-surface p-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -196,9 +202,10 @@ export function Today() {
           </p>
         )}
       </section>
+      )}
 
       {/* Today's plan — focus (the "why") sits atop Claude's time-blocks (the "when") */}
-      {(aiOn || data.todaysFocus) && (
+      {!hidden.has("plan") && (aiOn || data.todaysFocus) && (
         <section className="rounded-2xl border border-line bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className={LABEL}>{aiOn ? "Day plan" : "Today's focus"}</span>
@@ -255,6 +262,7 @@ export function Today() {
 
 
       {/* Top priorities */}
+      {!hidden.has("priorities") && (
       <section>
         <div className="mb-1 flex items-baseline justify-between">
           <span className={LABEL}>Top priorities</span>
@@ -274,8 +282,10 @@ export function Today() {
           </ul>
         )}
       </section>
+      )}
 
       {/* Training today */}
+      {!hidden.has("training") && (
       <section className="rounded-2xl border border-line bg-surface p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -341,9 +351,10 @@ export function Today() {
           </div>
         )}
       </section>
+      )}
 
       {/* Habits */}
-      {data.habits.length > 0 && (
+      {!hidden.has("habits") && data.habits.length > 0 && (
         <section>
           <h2 className={`mb-2 ${LABEL}`}>Habits</h2>
           <HabitsRow habits={data.habits} />

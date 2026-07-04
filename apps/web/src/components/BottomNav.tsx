@@ -15,42 +15,30 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { PAGES, getNavSlots, pageById, useLayoutVersion } from "../lib/layout";
 import { QuickAddSheet } from "./QuickAddSheet";
 import { Sheet } from "./ui/Sheet";
 
-const TABS: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
-  { to: "/", label: "Today", icon: Home, end: true },
-  { to: "/tasks", label: "Tasks", icon: ListChecks },
-];
-const TABS_RIGHT: { to: string; label: string; icon: LucideIcon }[] = [
-  { to: "/health", label: "Health", icon: HeartPulse },
-];
+export const PAGE_ICONS: Record<string, LucideIcon> = {
+  today: Home,
+  tasks: ListChecks,
+  health: HeartPulse,
+  goals: Target,
+  money: Wallet,
+  businesses: Briefcase,
+  coach: Sparkles,
+  meals: UtensilsCrossed,
+  day: CalendarDays,
+  settings: SettingsIcon,
+};
 
-const MORE: { to: string; label: string; icon: LucideIcon }[] = [
-  { to: "/goals", label: "Goals", icon: Target },
-  { to: "/money", label: "Money", icon: Wallet },
-  { to: "/businesses", label: "Business", icon: Briefcase },
-  { to: "/coach", label: "Coach", icon: Sparkles },
-  { to: "/meals", label: "Food log", icon: UtensilsCrossed },
-  { to: "/day", label: "History", icon: CalendarDays },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
-];
-
-function Tab({
-  to,
-  label,
-  icon: Icon,
-  end,
-}: {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  end?: boolean;
-}) {
+function Tab({ id }: { id: string }) {
+  const page = pageById(id);
+  const Icon = PAGE_ICONS[page.id] ?? Home;
   return (
     <NavLink
-      to={to}
-      end={end}
+      to={page.route}
+      end={page.route === "/"}
       className="pressable flex flex-1 flex-col items-center gap-0.5 py-2"
     >
       {({ isActive }) => (
@@ -64,7 +52,7 @@ function Tab({
               isActive ? "text-accent" : "text-muted"
             }`}
           >
-            {label}
+            {page.label}
           </span>
         </>
       )}
@@ -77,16 +65,21 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const moreActive = MORE.some((m) => location.pathname.startsWith(m.to));
+  useLayoutVersion();
+
+  const slots = getNavSlots();
+  const more = PAGES.filter((p) => !slots.includes(p.id));
+  const moreActive = more.some((m) =>
+    m.route === "/" ? location.pathname === "/" : location.pathname.startsWith(m.route),
+  );
 
   return (
     <>
       <nav className="fixed inset-x-0 bottom-0 z-30 safe-bottom">
         <div className="mx-auto max-w-md px-4 pb-3">
           <div className="flex items-center rounded-full border border-line/70 bg-surface/85 shadow-float backdrop-blur-xl">
-            {TABS.map((t) => (
-              <Tab key={t.to} {...t} />
-            ))}
+            <Tab id={slots[0]} />
+            <Tab id={slots[1]} />
 
             {/* Center quick-log action */}
             <div className="flex flex-1 justify-center">
@@ -99,9 +92,7 @@ export function BottomNav() {
               </button>
             </div>
 
-            {TABS_RIGHT.map((t) => (
-              <Tab key={t.to} {...t} />
-            ))}
+            <Tab id={slots[2]} />
 
             <button
               onClick={() => setMoreOpen(true)}
@@ -128,14 +119,18 @@ export function BottomNav() {
 
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <div className="grid grid-cols-2 gap-2.5">
-          {MORE.map(({ to, label, icon: Icon }) => {
-            const active = location.pathname.startsWith(to);
+          {more.map((p) => {
+            const Icon = PAGE_ICONS[p.id] ?? Home;
+            const active =
+              p.route === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(p.route);
             return (
               <button
-                key={to}
+                key={p.id}
                 onClick={() => {
                   setMoreOpen(false);
-                  navigate(to);
+                  navigate(p.route);
                 }}
                 className={`pressable flex items-center gap-3 rounded-2xl border p-3.5 text-left ${
                   active
@@ -153,12 +148,15 @@ export function BottomNav() {
                 <span
                   className={`text-sm font-semibold ${active ? "text-accent" : "text-text"}`}
                 >
-                  {label}
+                  {p.label}
                 </span>
               </button>
             );
           })}
         </div>
+        <p className="mt-4 text-center text-xs text-muted">
+          Customize the tab bar in Settings → Home &amp; navigation.
+        </p>
       </Sheet>
     </>
   );

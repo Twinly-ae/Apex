@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { loadGoals } from "./goals";
 import { computeHealth } from "./health";
 import { loadAccounts, netWorthTotal } from "./money";
+import { computePrs, e1rm } from "./prs";
 import { dayRange, dayString, localWeekdayMon0 } from "./time";
 
 /** A compact, plain-text snapshot of the user's day for the AI to reason over. */
@@ -19,6 +20,8 @@ export async function buildUserContext(userId: string): Promise<string> {
     plannedWorkouts,
     trainingPlan,
     timedTasks,
+    recentWorkouts,
+    prs,
   ] = await Promise.all([
     prisma.settings.findUnique({ where: { userId } }),
     prisma.meal.findMany({ where: { userId, eatenAt: { gte: start, lt: end } } }),
@@ -51,6 +54,13 @@ export async function buildUserContext(userId: string): Promise<string> {
       take: 20,
       select: { estMinutes: true, actualMinutes: true },
     }),
+    prisma.workout.findMany({
+      where: { userId },
+      orderBy: { performedAt: "desc" },
+      take: 4,
+      include: { sets: { orderBy: { order: "asc" } } },
+    }),
+    computePrs(userId),
   ]);
 
   // Today's planned training split + whether it's been done.
@@ -64,6 +74,38 @@ export async function buildUserContext(userId: string): Promise<string> {
           ? "already logged ✓"
           : "NOT done yet; block a ~60–75min gym session"
       }.`;
+  const splitLine = trainingPlan?.days?.length
+    ? `Weekly split (Mon→Sun): ${trainingPlan.days.join(", ")}.`
+    : "Weekly split: not set.";
+
+  // Recent sessions with exercise detail — what an actual coach needs to see.
+  const workoutLines = recentWorkouts.map((w) => {
+    const byExercise = new Map<string, { count: number; top: string; topScore: number }>();
+    for (const s of w.sets) {
+      const cur = byExercise.get(s.exercise) ?? { count: 0, top: "", topScore: -1 };
+      cur.count += 1;
+      if (s.reps != null && s.reps > 0) {
+        const score = s.weightKg != null && s.weightKg > 0 ? e1rm(s.weightKg, s.reps) : 0;
+        if (score > cur.topScore) {
+          cur.topScore = score;
+          cur.top = s.weightKg != null && s.weightKg > 0 ? `${s.weightKg}kg×${s.reps}` : `BW×${s.reps}`;
+        }
+      }
+      byExercise.set(s.exercise, cur);
+    }
+    const detail =
+      [...byExercise.entries()]
+        .slice(0, 10)
+        .map(([ex, d]) => `${ex} ${d.count} sets${d.top ? ` (top ${d.top})` : ""}`)
+        .join("; ") || "no set detail";
+    return `- ${dayString(w.performedAt)} ${w.title}${w.source === "hevy" ? " [Hevy]" : ""}: ${detail}`;
+  });
+
+  const prLine =
+    prs
+      .slice(0, 10)
+      .map((p) => `${p.exercise} ${p.weightKg}kg×${p.reps} (~${Math.round(p.e1rmKg)}kg 1RM)`)
+      .join("; ") || "none yet";
 
   // Open tasks with priority, estimate, due-date urgency, and any next sub-step
   // (everything the planner needs to time-block the day around real tasks).
@@ -120,6 +162,11 @@ export async function buildUserContext(userId: string): Promise<string> {
         `(HRV ${health.hrv ?? "?"}ms vs ${health.hrvBaseline ?? "?"} baseline, resting HR ${health.restingHr ?? "?"} vs ${health.hrBaseline ?? "?"}; REM ${health.remHours ?? "?"}h, deep ${health.deepHours ?? "?"}h). Factor recovery into today's training advice.`
       : "Apple Health: nothing synced today (no sleep, recovery, steps, or active energy) — can't assess recovery; remind him to sync his watch.",
     trainingLine,
+    splitLine,
+    recentWorkouts.length
+      ? `Recent workouts (newest first — his actual lifts):\n${workoutLines.join("\n")}`
+      : "Recent workouts: none logged yet.",
+    `Personal records (best set, est. 1RM): ${prLine}.`,
     `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
     workloadLine,
     ...(calibrationLine ? [calibrationLine] : []),

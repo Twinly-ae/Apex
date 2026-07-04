@@ -4,6 +4,7 @@ import type { Workout, WorkoutSet } from "@apex/shared";
 import {
   AdherenceChart,
   BodyweightChart,
+  E1rmChart,
   EnergyChart,
   HrvChart,
   RestingHrChart,
@@ -11,6 +12,7 @@ import {
   SleepStagesChart,
   TrainingChart,
 } from "../components/Charts";
+import { selectClass } from "../components/ui/Sheet";
 import { StatCard } from "../components/StatCard";
 import { TrainingPlanEditor } from "../components/TrainingPlanEditor";
 import { HealthSyncCard } from "../components/health/HealthSyncCard";
@@ -19,6 +21,7 @@ import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { kg } from "../lib/format";
 import {
   useDeleteWorkout,
+  useExerciseProgression,
   useGenerateHealthTips,
   useHealth,
   useHealthTips,
@@ -117,6 +120,35 @@ function WorkoutRow({ w, onDelete }: { w: Workout; onDelete: () => void }) {
         </div>
       )}
     </li>
+  );
+}
+
+function StrengthHistory() {
+  const { data: prs } = usePrs();
+  const [exercise, setExercise] = useState<string | null>(null);
+  const active = exercise ?? prs?.[0]?.exercise ?? null;
+  const { data: points } = useExerciseProgression(active);
+  if (!prs || prs.length === 0) return null;
+
+  return (
+    <ChartCard title="Strength history">
+      <select
+        value={active ?? ""}
+        onChange={(e) => setExercise(e.target.value)}
+        className={`${selectClass} mb-3`}
+      >
+        {prs.map((p) => (
+          <option key={p.exercise} value={p.exercise}>
+            {p.exercise}
+          </option>
+        ))}
+      </select>
+      <E1rmChart data={points ?? []} />
+      <p className="mt-2 text-xs text-muted">
+        Best set per day as estimated 1RM — an upward line means you're getting
+        stronger.
+      </p>
+    </ChartCard>
   );
 }
 
@@ -401,6 +433,8 @@ export function Health() {
           <ChartCard title="Calories in vs out (14d)">
             <EnergyChart data={health?.energySeries ?? []} />
           </ChartCard>
+
+          <StrengthHistory />
 
           <ChartCard title="Training volume / week">
             <TrainingChart data={trends.training} />

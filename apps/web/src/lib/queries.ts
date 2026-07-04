@@ -34,6 +34,7 @@ import type {
   UpdateTaskInput,
   WaterLog,
   PrRecord,
+  ProgressionPoint,
   Workout,
 } from "@apex/shared";
 import { api } from "./api";
@@ -430,6 +431,17 @@ export function usePrs() {
   return useQuery({
     queryKey: ["prs"],
     queryFn: () => api.get<PrRecord[]>("/api/workouts/prs"),
+  });
+}
+
+export function useExerciseProgression(exercise: string | null) {
+  return useQuery({
+    queryKey: ["progression", exercise],
+    queryFn: () =>
+      api.get<ProgressionPoint[]>(
+        `/api/workouts/progression?exercise=${encodeURIComponent(exercise ?? "")}`,
+      ),
+    enabled: Boolean(exercise),
   });
 }
 

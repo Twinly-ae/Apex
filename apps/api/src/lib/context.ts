@@ -2,7 +2,7 @@ import { prisma } from "../db";
 import { loadGoals } from "./goals";
 import { computeHealth } from "./health";
 import { loadAccounts, netWorthTotal } from "./money";
-import { computePrs, e1rm } from "./prs";
+import { computePrs, e1rm, progressionSummary } from "./prs";
 import { dayRange, dayString, localWeekdayMon0 } from "./time";
 
 /** A compact, plain-text snapshot of the user's day for the AI to reason over. */
@@ -22,6 +22,7 @@ export async function buildUserContext(userId: string): Promise<string> {
     timedTasks,
     recentWorkouts,
     prs,
+    strengthTrend,
   ] = await Promise.all([
     prisma.settings.findUnique({ where: { userId } }),
     prisma.meal.findMany({ where: { userId, eatenAt: { gte: start, lt: end } } }),
@@ -61,6 +62,7 @@ export async function buildUserContext(userId: string): Promise<string> {
       include: { sets: { orderBy: { order: "asc" } } },
     }),
     computePrs(userId),
+    progressionSummary(userId),
   ]);
 
   // Today's planned training split + whether it's been done.
@@ -167,6 +169,7 @@ export async function buildUserContext(userId: string): Promise<string> {
       ? `Recent workouts (newest first — his actual lifts):\n${workoutLines.join("\n")}`
       : "Recent workouts: none logged yet.",
     `Personal records (best set, est. 1RM): ${prLine}.`,
+    `Strength trend (monthly best est. 1RM, last 3 months): ${strengthTrend}.`,
     `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
     workloadLine,
     ...(calibrationLine ? [calibrationLine] : []),

@@ -4,6 +4,7 @@ import type {
   EnergyPoint,
   HealthPoint,
   NetWorthPoint,
+  ProgressionPoint,
   SleepStagePoint,
   TrainingWeekPoint,
 } from "@apex/shared";
@@ -333,6 +334,53 @@ export function EnergyChart({ data }: { data: EnergyPoint[] }) {
         <Bar dataKey="In" fill="#7c6bff" radius={[4, 4, 0, 0]} maxBarSize={22} />
         <Line type="monotone" dataKey="Out" stroke="#fbbf24" strokeWidth={2} dot={false} />
       </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function E1rmChart({ data }: { data: ProgressionPoint[] }) {
+  if (data.length < 2) {
+    return <Empty msg="Log this lift a few times to see your strength trend." />;
+  }
+  const points = data.map((d) => ({
+    label: md(d.date),
+    "est. 1RM": d.e1rmKg,
+    set: `${d.weightKg}kg × ${d.reps}`,
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <LineChart data={points} margin={{ top: 5, right: 8, bottom: 0, left: -14 }}>
+        <CartesianGrid stroke={GRID} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          minTickGap={28}
+        />
+        <YAxis
+          tick={AXIS}
+          tickLine={false}
+          axisLine={false}
+          width={44}
+          domain={["dataMin - 2", "dataMax + 2"]}
+          tickFormatter={(v) => `${Math.round(Number(v))}`}
+        />
+        <Tooltip
+          {...TOOLTIP}
+          formatter={(value, name, item) => [
+            `${Math.round(Number(value))}kg (${(item?.payload as { set?: string })?.set ?? ""})`,
+            String(name),
+          ]}
+        />
+        <Line
+          type="monotone"
+          dataKey="est. 1RM"
+          stroke="#7c6bff"
+          strokeWidth={2}
+          dot={{ r: 3, fill: "#7c6bff", strokeWidth: 0 }}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

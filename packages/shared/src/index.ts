@@ -503,6 +503,14 @@ export interface PrRecord {
   performedAt: string;
 }
 
+/** Best set of one day for an exercise — powers the strength-history chart. */
+export interface ProgressionPoint {
+  date: string;
+  weightKg: number;
+  reps: number;
+  e1rmKg: number;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Trends                                                                     */
 /* -------------------------------------------------------------------------- */

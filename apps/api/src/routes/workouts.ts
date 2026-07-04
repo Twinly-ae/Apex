@@ -9,7 +9,7 @@ import {
 import { prisma } from "../db";
 import { fetchRecentWorkouts, hevyConfigured } from "../integrations/hevy";
 import { parseOr400 } from "../lib/http";
-import { computePrs, detectNewPrs } from "../lib/prs";
+import { computePrs, detectNewPrs, exerciseProgression } from "../lib/prs";
 
 type WorkoutWithSets = Prisma.WorkoutGetPayload<{ include: { sets: true } }>;
 
@@ -100,6 +100,17 @@ export default async function workoutRoutes(
   // All-time best set per exercise, ranked by estimated 1RM.
   app.get("/prs", async (request) => {
     return computePrs(request.userId);
+  });
+
+  // Best set per day for one exercise (last ~6 months) — strength history.
+  app.get("/progression", async (request, reply) => {
+    const exercise = (request.query as Record<string, unknown> | undefined)
+      ?.exercise;
+    if (typeof exercise !== "string" || !exercise.trim()) {
+      reply.code(400).send({ error: "exercise is required" });
+      return;
+    }
+    return exerciseProgression(request.userId, exercise.trim());
   });
 
   app.get("/", async (request) => {

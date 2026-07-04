@@ -32,6 +32,17 @@ function nextOccurrence(from: Date, repeat: string, now = new Date()): Date {
   return d;
 }
 
+/**
+ * Minutes to bank for a focus stretch. Honest rounding: ignore accidental
+ * taps (<10s), count short-but-real stretches as 1m, else round normally.
+ */
+function bankedMinutes(startedAt: Date): number {
+  const sec = (Date.now() - startedAt.getTime()) / 1000;
+  if (sec < 10) return 0;
+  if (sec < 60) return 1;
+  return Math.round(sec / 60);
+}
+
 export default async function taskRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
 
@@ -112,12 +123,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
           ? {
               actualMinutes:
                 (existing.actualMinutes ?? 0) +
-                Math.max(
-                  1,
-                  Math.round(
-                    (Date.now() - existing.timerStartedAt.getTime()) / 60_000,
-                  ),
-                ),
+                bankedMinutes(existing.timerStartedAt),
               timerStartedAt: null,
             }
           : {}),
@@ -176,8 +182,6 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
   }
 
   // ---- Focus timer ---------------------------------------------------------
-  const elapsedMinutes = (startedAt: Date) =>
-    Math.max(1, Math.round((Date.now() - startedAt.getTime()) / 60_000));
 
   app.post("/:id/timer/start", async (request, reply) => {
     const params = parseOr400(idParamSchema, request.params, reply);
@@ -202,7 +206,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         where: { id: r.id },
         data: {
           actualMinutes:
-            (r.actualMinutes ?? 0) + elapsedMinutes(r.timerStartedAt as Date),
+            (r.actualMinutes ?? 0) + bankedMinutes(r.timerStartedAt as Date),
           timerStartedAt: null,
         },
       });
@@ -231,7 +235,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
         where: { id: task.id },
         data: {
           actualMinutes:
-            (task.actualMinutes ?? 0) + elapsedMinutes(task.timerStartedAt),
+            (task.actualMinutes ?? 0) + bankedMinutes(task.timerStartedAt),
           timerStartedAt: null,
         },
       });

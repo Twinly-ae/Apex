@@ -11,7 +11,7 @@ import {
   Timer,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Task } from "@apex/shared";
 import { TaskSheet } from "../components/logging/TaskSheet";
 import {
@@ -24,26 +24,23 @@ import {
 } from "../lib/queries";
 import { colorHex, estLabel } from "../lib/taskColors";
 
-/** Re-render every 30s while a timer is running so the elapsed stays live. */
+/** Re-render every second while a timer is running so the clock is live. */
 function useTick(active: boolean) {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [active]);
 }
 
-/** Total focus minutes: banked + the running stretch. */
-function focusMinutes(task: Task): number {
-  let m = task.actualMinutes ?? 0;
-  if (task.timerStartedAt) {
-    m += Math.max(
-      0,
-      Math.round((Date.now() - new Date(task.timerStartedAt).getTime()) / 60_000),
-    );
-  }
-  return m;
+/** Live stopwatch format: M:SS, or H:MM:SS past an hour. */
+function fmtClock(totalSec: number): string {
+  const s = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }
 
 const PRIORITY_PILL: Record<number, string> = {
@@ -60,15 +57,27 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   const startTimer = useStartTaskTimer();
   const stopTimer = useStopTaskTimer();
   const [open, setOpen] = useState(false);
+  // Local anchor so the clock starts ticking the instant you tap play,
+  // before the server round-trip lands (and immune to clock skew).
+  const localStart = useRef<number | null>(null);
 
   const steps = task.steps;
   const doneSteps = steps.filter((s) => s.done).length;
   const hasSteps = steps.length > 0;
   const accent = colorHex(task.color);
   const est = estLabel(task.estMinutes);
-  const running = task.timerStartedAt != null;
+
+  const serverStart = task.timerStartedAt
+    ? new Date(task.timerStartedAt).getTime()
+    : null;
+  if (serverStart == null && !startTimer.isPending) localStart.current = null;
+  const running =
+    (serverStart != null && !stopTimer.isPending) || startTimer.isPending;
   useTick(running);
-  const focused = focusMinutes(task);
+  const anchor = localStart.current ?? serverStart;
+  const liveSec = running && anchor != null ? (Date.now() - anchor) / 1000 : 0;
+  const bankedMin = task.actualMinutes ?? 0;
+  const totalSec = bankedMin * 60 + liveSec;
 
   return (
     <li
@@ -132,27 +141,36 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
                 />
               </span>
             )}
-            {(running || focused > 0) && (
-              <span
-                className={`inline-flex items-center gap-1 tabular-nums ${
-                  running ? "text-good" : "text-muted"
-                }`}
-              >
-                <Timer className="h-3 w-3" strokeWidth={2.5} />
-                {focused}m{task.done ? "" : running ? " · running" : " logged"}
+            {running ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-good/15 px-2 py-0.5 font-display text-[11px] font-semibold tabular-nums text-good">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-good" />
+                {fmtClock(totalSec)}
               </span>
+            ) : (
+              bankedMin > 0 && (
+                <span className="inline-flex items-center gap-1 tabular-nums text-muted">
+                  <Timer className="h-3 w-3" strokeWidth={2.5} />
+                  {task.done ? `took ${bankedMin}m` : `${bankedMin}m logged`}
+                </span>
+              )
             )}
           </div>
         </button>
 
         {!task.done && (
           <button
-            onClick={() =>
-              running ? stopTimer.mutate(task.id) : startTimer.mutate(task.id)
-            }
+            onClick={() => {
+              if (running) {
+                localStart.current = null;
+                stopTimer.mutate(task.id);
+              } else {
+                localStart.current = Date.now();
+                startTimer.mutate(task.id);
+              }
+            }}
             disabled={startTimer.isPending || stopTimer.isPending}
             aria-label={running ? "Stop focus timer" : "Start focus timer"}
-            className={`-m-1.5 p-1.5 ${running ? "text-good" : "text-muted active:text-accent"}`}
+            className={`pressable -m-1.5 p-1.5 ${running ? "text-good" : "text-muted active:text-accent"}`}
           >
             {running ? (
               <Square className="h-[18px] w-[18px]" strokeWidth={2} />

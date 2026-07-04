@@ -1,6 +1,14 @@
+import { Check } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { NotificationPrefs, SettingsInput } from "@apex/shared";
 import { ApiError, api } from "../lib/api";
+import {
+  ACCENTS,
+  getAccentId,
+  getAurora,
+  setAccent,
+  setAurora,
+} from "../lib/theme";
 import {
   currentSubscription,
   disablePush,
@@ -244,6 +252,48 @@ function ToggleRow({
   );
 }
 
+function AppearanceCard() {
+  const [accentId, setAccentId] = useState(getAccentId());
+  const [aurora, setAuroraState] = useState(getAurora());
+
+  return (
+    <Card title="Appearance">
+      <div className="mb-1 text-sm text-text">Accent color</div>
+      <div className="mt-2 flex items-center gap-3">
+        {ACCENTS.map((a) => (
+          <button
+            key={a.id}
+            aria-label={a.name}
+            onClick={() => {
+              setAccent(a.id);
+              setAccentId(a.id);
+            }}
+            className={`pressable grid h-9 w-9 place-items-center rounded-full transition-transform ${
+              accentId === a.id ? "ring-2 ring-white/80 ring-offset-2 ring-offset-surface" : ""
+            }`}
+            style={{ backgroundColor: a.hex }}
+          >
+            {accentId === a.id && (
+              <Check className="h-4 w-4 text-white" strokeWidth={3} />
+            )}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 border-t border-line pt-1">
+        <ToggleRow
+          label="Aurora backdrop"
+          desc="Soft accent glow behind the app"
+          checked={aurora}
+          onChange={(v) => {
+            setAurora(v);
+            setAuroraState(v);
+          }}
+        />
+      </div>
+    </Card>
+  );
+}
+
 type CheckName = "ai" | "notion" | "hevy";
 
 function IntegrationsCard() {
@@ -302,8 +352,7 @@ function IntegrationsCard() {
                   {r.label}
                 </span>
                 <code
-                  title={status}
-                  className={`max-w-[55%] truncate text-right text-xs ${
+                  className={`max-w-[55%] break-words text-right text-xs leading-snug ${
                     failed ? "text-bad" : ok ? "text-good" : "text-muted"
                   }`}
                 >
@@ -621,6 +670,7 @@ export function Settings() {
       <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Settings</h1>
 
       <TargetsCard />
+      <AppearanceCard />
       <IntegrationsCard />
       <AppleHealthCard />
       <NotificationsCard />

@@ -5,7 +5,10 @@ import { BrowserRouter } from "react-router-dom";
 import "@fontsource-variable/manrope";
 import "@fontsource-variable/space-grotesk";
 import App from "./App";
+import { applyTheme } from "./lib/theme";
 import "./index.css";
+
+applyTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -640,6 +640,8 @@ export const useSyncHevy = () => {
 /* ===================== Phase 4: AI coach ===================== */
 import type {
   AiChatMessage,
+  AiConversation,
+  ChatResponse,
   AiText,
   Business,
   BusinessPnl,
@@ -655,20 +657,53 @@ import type {
   UpdateBusinessInput,
 } from "@apex/shared";
 
-/* ----- Chat ----- */
-export function useAiChat() {
+/* ----- Chat (threaded) ----- */
+export function useConversations() {
   return useQuery({
-    queryKey: ["ai-chat"],
+    queryKey: ["ai-convos"],
+    queryFn: () => api.get<AiConversation[]>("/api/ai/chat/conversations"),
+  });
+}
+export function useAiChat(conversationId?: string | null) {
+  return useQuery({
+    queryKey: ["ai-chat", conversationId ?? "latest"],
     queryFn: () =>
-      api.get<{ configured: boolean; messages: AiChatMessage[] }>("/api/ai/chat"),
+      api.get<ChatResponse>(
+        `/api/ai/chat${conversationId ? `?conversationId=${conversationId}` : ""}`,
+      ),
   });
 }
 export function useSendChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (message: string) =>
-      api.post<AiChatMessage>("/api/ai/chat", { message }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-chat"] }),
+    mutationFn: (input: { message: string; conversationId?: string | null }) =>
+      api.post<AiChatMessage & { conversationId: string }>("/api/ai/chat", {
+        message: input.message,
+        conversationId: input.conversationId ?? undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-chat"] });
+      qc.invalidateQueries({ queryKey: ["ai-convos"] });
+    },
+  });
+}
+export function useNewConversation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post<AiConversation>("/api/ai/chat/conversations"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-convos"] }),
+  });
+}
+export function useDeleteConversation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.del<{ ok: boolean }>(`/api/ai/chat/conversations/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-chat"] });
+      qc.invalidateQueries({ queryKey: ["ai-convos"] });
+    },
   });
 }
 

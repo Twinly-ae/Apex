@@ -50,14 +50,68 @@ async function runAi<T>(
 export default async function aiRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
 
-  /* ----- Chat ----- */
-  app.get("/chat", async (request) => {
-    const msgs = await prisma.aiMessage.findMany({
+  /* ----- Chat (threaded) ----- */
+
+  // List conversations, most recent first.
+  app.get("/chat/conversations", async (request) => {
+    const rows = await prisma.aiConversation.findMany({
       where: { userId: request.userId },
-      orderBy: { createdAt: "asc" },
-      take: 100,
+      orderBy: { updatedAt: "desc" },
+      take: 50,
     });
-    return { configured: aiConfigured(), messages: msgs.map(toChat) };
+    return rows.map((c) => ({
+      id: c.id,
+      title: c.title,
+      updatedAt: c.updatedAt.toISOString(),
+    }));
+  });
+
+  // Start a fresh thread.
+  app.post("/chat/conversations", async (request, reply) => {
+    const c = await prisma.aiConversation.create({
+      data: { userId: request.userId },
+    });
+    reply.code(201);
+    return { id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString() };
+  });
+
+  app.delete("/chat/conversations/:id", async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const result = await prisma.aiConversation.deleteMany({
+      where: { id, userId: request.userId },
+    });
+    if (result.count === 0) {
+      reply.code(404).send({ error: "Not found" });
+      return;
+    }
+    return { ok: true };
+  });
+
+  // Messages of a thread (defaults to the most recent thread).
+  app.get("/chat", async (request) => {
+    const q = (request.query as Record<string, unknown> | undefined)
+      ?.conversationId;
+    const conversation =
+      typeof q === "string" && q
+        ? await prisma.aiConversation.findFirst({
+            where: { id: q, userId: request.userId },
+          })
+        : await prisma.aiConversation.findFirst({
+            where: { userId: request.userId },
+            orderBy: { updatedAt: "desc" },
+          });
+    const msgs = conversation
+      ? await prisma.aiMessage.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: "asc" },
+          take: 200,
+        })
+      : [];
+    return {
+      configured: aiConfigured(),
+      conversationId: conversation?.id ?? null,
+      messages: msgs.map(toChat),
+    };
   });
 
   app.post("/chat", async (request, reply) => {
@@ -67,16 +121,34 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       reply.code(503).send({ error: "AI is not configured (set ANTHROPIC_API_KEY)" });
       return;
     }
+
+    // Resolve (or create) the thread this message belongs to.
+    let conversation = body.conversationId
+      ? await prisma.aiConversation.findFirst({
+          where: { id: body.conversationId, userId: request.userId },
+        })
+      : null;
+    if (!conversation) {
+      conversation = await prisma.aiConversation.create({
+        data: { userId: request.userId },
+      });
+    }
+
     await prisma.aiMessage.create({
-      data: { userId: request.userId, role: "user", content: body.message },
+      data: {
+        userId: request.userId,
+        conversationId: conversation.id,
+        role: "user",
+        content: body.message,
+      },
     });
 
     const history = await prisma.aiMessage.findMany({
-      where: { userId: request.userId },
-      orderBy: { createdAt: "asc" },
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: "desc" },
       take: 20,
     });
-    const messages: AiMessageParam[] = history.map((m) => ({
+    const messages: AiMessageParam[] = history.reverse().map((m) => ({
       role: m.role === "assistant" ? "assistant" : "user",
       content: m.content,
     }));
@@ -97,9 +169,29 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
     if (answer === undefined) return;
 
     const saved = await prisma.aiMessage.create({
-      data: { userId: request.userId, role: "assistant", content: answer },
+      data: {
+        userId: request.userId,
+        conversationId: conversation.id,
+        role: "assistant",
+        content: answer,
+      },
     });
-    return toChat(saved);
+    // Title new threads from their first message; bump recency either way.
+    await prisma.aiConversation.update({
+      where: { id: conversation.id },
+      data: {
+        updatedAt: new Date(),
+        ...(conversation.title === "New chat"
+          ? {
+              title:
+                body.message.length > 42
+                  ? `${body.message.slice(0, 42)}…`
+                  : body.message,
+            }
+          : {}),
+      },
+    });
+    return { ...toChat(saved), conversationId: conversation.id };
   });
 
   /* ----- Briefing ----- */

@@ -4,6 +4,9 @@
 
 :root {
   color-scheme: dark;
+  /* Accent as R G B triplets — swapped at runtime by the Appearance setting. */
+  --accent: 124 107 255;
+  --accent-strong: 93 68 245;
 }
 
 html,
@@ -18,13 +21,18 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
-  /* Deep base with a faint violet aurora up top — gives the whole app depth. */
+  /* Deep base with a faint accent aurora up top — gives the whole app depth. */
   background-color: #08080d;
   background-image:
-    radial-gradient(1100px 480px at 50% -220px, rgba(124, 107, 255, 0.14), transparent 70%),
-    radial-gradient(700px 340px at 110% 0%, rgba(93, 68, 245, 0.06), transparent 70%);
+    radial-gradient(1100px 480px at 50% -220px, rgb(var(--accent) / 0.14), transparent 70%),
+    radial-gradient(700px 340px at 110% 0%, rgb(var(--accent-strong) / 0.06), transparent 70%);
   background-repeat: no-repeat;
   background-attachment: fixed;
+}
+
+/* Appearance setting: turn the aurora off for a flat black look */
+html.no-aurora body {
+  background-image: none;
 }
 
 /* Uniform tactile press for buttons/links (opt-in via .pressable) */
@@ -37,7 +45,7 @@ body {
 }
 
 ::selection {
-  background: rgba(124, 107, 255, 0.32);
+  background: rgb(var(--accent) / 0.32);
 }
 
 /* iOS: 16px inputs prevent auto-zoom on focus */

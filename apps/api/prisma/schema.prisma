@@ -34,6 +34,7 @@ model User {
   healthMetrics     HealthMetric[]
   twinlyExpenses    TwinlyExpense[]
   aiMessages        AiMessage[]
+  aiConversations   AiConversation[]
   aiArtifacts       AiArtifact[]
   twinlySales       TwinlySale[]
   businesses        Business[]
@@ -333,15 +334,31 @@ model TwinlyExpense {
 
 // ---- Phase 4: AI coach ------------------------------------------------------
 
-model AiMessage {
-  id        String   @id @default(cuid())
+/// A chat thread with the coach; messages group under it.
+model AiConversation {
+  id        String      @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      String // user | assistant
-  content   String
-  createdAt DateTime @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String      @default("New chat")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model AiMessage {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String?
+  conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // user | assistant
+  content        String
+  createdAt      DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@index([conversationId, createdAt])
 }
 
 /// Cache for generated briefings / day plans / weekly reviews.

@@ -765,8 +765,25 @@ export interface AiChatMessage {
   createdAt: string;
 }
 
-export const chatInputSchema = z.object({ message: z.string().min(1).max(4000) });
+export const chatInputSchema = z.object({
+  message: z.string().min(1).max(4000),
+  conversationId: z.string().optional(),
+});
 export type ChatInput = z.infer<typeof chatInputSchema>;
+
+/** A chat thread with the coach. */
+export interface AiConversation {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+/** One conversation's messages (plus which thread they belong to). */
+export interface ChatResponse {
+  configured: boolean;
+  conversationId: string | null;
+  messages: AiChatMessage[];
+}
 
 /** A cached, AI-generated text artifact (briefing / day plan / weekly review). */
 export interface AiText {

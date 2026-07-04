@@ -107,7 +107,10 @@ export function Coach() {
   return (
     <div className="flex min-h-[calc(100vh-11rem)] flex-col">
       {/* Sticky header — New chat & History always reachable */}
-      <header className="sticky top-0 z-20 -mx-4 mb-2 flex items-center justify-between gap-2 bg-bg/90 px-4 py-2.5 backdrop-blur-lg">
+      <header
+        className="sticky z-20 -mx-4 mb-2 flex items-center justify-between gap-2 bg-bg/90 px-4 py-2.5 backdrop-blur-lg"
+        style={{ top: "env(safe-area-inset-top, 0px)" }}
+      >
         <div className="flex min-w-0 items-center gap-2.5">
           <CoachAvatar />
           <div className="min-w-0">

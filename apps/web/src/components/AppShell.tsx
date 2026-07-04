@@ -21,7 +21,14 @@ export function AppShell() {
 
   return (
     <div className="mx-auto min-h-full max-w-md">
-      <main className="px-4 pb-32 pt-5 safe-top">
+      {/* Blurred backdrop under the iOS status bar so scrolled content
+          doesn't collide with the clock (native-app behavior). */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-40 bg-bg/70 backdrop-blur-md"
+        style={{ height: "env(safe-area-inset-top, 0px)" }}
+      />
+      <main className="px-4 pb-32 safe-top">
         <Outlet />
       </main>
       <BottomNav />

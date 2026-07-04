@@ -99,7 +99,8 @@ select option {
 
 /* Safe-area helpers for notched phones */
 .safe-top {
-  padding-top: max(env(safe-area-inset-top), 0px);
+  /* status-bar inset + the page's own breathing room */
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
 }
 .safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), 0px);

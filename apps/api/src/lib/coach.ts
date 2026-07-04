@@ -13,6 +13,18 @@ const PERSONA =
   "recomp (protein first, ~2200 kcal). Time is his scarcest resource. Be direct, " +
   "specific to his real numbers, and motivating — never generic.";
 
+/** Base persona plus the user's own standing instructions from Settings. */
+export async function personaFor(userId: string): Promise<string> {
+  const s = await prisma.settings.findUnique({
+    where: { userId },
+    select: { aiInstructions: true },
+  });
+  const custom = s?.aiInstructions?.trim();
+  return custom
+    ? `${PERSONA}\n\nThe user's own standing instructions — always follow them:\n${custom}`
+    : PERSONA;
+}
+
 export async function getArtifact(
   userId: string,
   kind: string,
@@ -43,7 +55,7 @@ export async function generateBriefing(
 ): Promise<{ text: string; generatedAt: Date }> {
   const ctx = await buildUserContext(userId);
   const text = await runText({
-    system: `${PERSONA} Write a tight morning briefing in 2–4 sentences. Lead with what matters most today, mention protein/calories remaining, and end with one motivating push. No lists, no preamble.`,
+    system: `${await personaFor(userId)} Write a tight morning briefing in 2–4 sentences. Lead with what matters most today, mention protein/calories remaining, and end with one motivating push. No lists, no preamble.`,
     messages: [{ role: "user", content: `My data:\n${ctx}\n\nWrite my morning briefing.` }],
     maxTokens: 400,
   });
@@ -62,7 +74,7 @@ export async function generatePlan(
     await setArtifact(userId, "commitments", "default", commitments.trim());
   }
   const text = await runText({
-    system: `${PERSONA} Build a realistic time-blocked plan for TODAY that maximises his time. Rules: (1) Schedule fixed commitments first. (2) If the "Training today" line names a split (Push/Pull/Legs/Upper/Lower) and it is NOT already logged, you MUST place a ~60–75min gym block for that exact split today — name it (e.g. "Pull session"); if it says REST, do not add a workout. (3) Schedule the open tasks TODAY: size each block to the task's "~Nm" estimate when given (a ~30m task gets a 30-minute block, not an hour), and order them by urgency then priority — anything marked [OVERDUE] or [due today] must be scheduled today, then [P1] before [P2] before [P3]. Use the task's next sub-step as the block label when present (e.g. "Twinly — confirm supplier"). Don't cram more task-hours than realistically fit around the fixed commitments. (4) Fill any remaining slots with goal next-steps. Output ONLY a schedule, one block per line like "07:00–08:00 — <thing>". Keep it to today.`,
+    system: `${await personaFor(userId)} Build a realistic time-blocked plan for TODAY that maximises his time. Rules: (1) Schedule fixed commitments first. (2) If the "Training today" line names a split (Push/Pull/Legs/Upper/Lower) and it is NOT already logged, you MUST place a ~60–75min gym block for that exact split today — name it (e.g. "Pull session"); if it says REST, do not add a workout. (3) Schedule the open tasks TODAY: size each block to the task's "~Nm" estimate when given (a ~30m task gets a 30-minute block, not an hour), and order them by urgency then priority — anything marked [OVERDUE] or [due today] must be scheduled today, then [P1] before [P2] before [P3]. Use the task's next sub-step as the block label when present (e.g. "Twinly — confirm supplier"). Don't cram more task-hours than realistically fit around the fixed commitments. (4) Fill any remaining slots with goal next-steps. Output ONLY a schedule, one block per line like "07:00–08:00 — <thing>". Keep it to today.`,
     messages: [
       {
         role: "user",
@@ -94,7 +106,7 @@ export async function generateHealthTips(
     `Recent sleep hours: ${h.sleepSeries.map((p) => p.value).join(", ") || "none"}. ` +
     `Recent resting HR: ${h.rhrSeries.map((p) => p.value).join(", ") || "none"}.`;
   const text = await runText({
-    system: `${PERSONA} Give exactly 3 short, specific, actionable tips — one for SLEEP (use his REM, deep, efficiency and awake time, not just hours), one for RECOVERY (use HRV vs baseline and resting HR), and one for STRAIN (training & activity load). Reference his real numbers. One tip per line, each starting with "- ". No preamble, no headings.`,
+    system: `${await personaFor(userId)} Give exactly 3 short, specific, actionable tips — one for SLEEP (use his REM, deep, efficiency and awake time, not just hours), one for RECOVERY (use HRV vs baseline and resting HR), and one for STRAIN (training & activity load). Reference his real numbers. One tip per line, each starting with "- ". No preamble, no headings.`,
     messages: [
       {
         role: "user",
@@ -182,7 +194,7 @@ export async function generatePaymentsReview(
       .join("; ") || "none tracked";
 
   const text = await runText({
-    system: `${PERSONA} Review his recurring monthly payments like a sharp CFO. Cover: (1) total estimated monthly recurring spend in AED; (2) each recurring payment worth noting; (3) anything that increased, looks duplicated, or overlaps; (4) what looks cancellable or negotiable and roughly how much that saves per month/year. End with 2–3 concrete actions. Use his real AED numbers; short sections or tight bullets, no preamble.`,
+    system: `${await personaFor(userId)} Review his recurring monthly payments like a sharp CFO. Cover: (1) total estimated monthly recurring spend in AED; (2) each recurring payment worth noting; (3) anything that increased, looks duplicated, or overlaps; (4) what looks cancellable or negotiable and roughly how much that saves per month/year. End with 2–3 concrete actions. Use his real AED numbers; short sections or tight bullets, no preamble.`,
     messages: [
       {
         role: "user",
@@ -231,7 +243,7 @@ export async function generateReview(
       .join("; ") || "none"}.`;
   }
   const text = await runText({
-    system: `${PERSONA} ${REVIEW_FOCUS[type]} Write a short, structured weekly review (a few short paragraphs or tight bullets). Be honest and specific.`,
+    system: `${await personaFor(userId)} ${REVIEW_FOCUS[type]} Write a short, structured weekly review (a few short paragraphs or tight bullets). Be honest and specific.`,
     messages: [{ role: "user", content: `My data:\n${ctx}\n${extra}\n\nWrite the review.` }],
     maxTokens: 800,
     thinking: true,

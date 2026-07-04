@@ -53,6 +53,8 @@ export const settingsSchema = z.object({
   maintenanceCalories: z.number().int().min(800).max(8000),
   heightCm: z.number().int().min(100).max(250).nullable().optional(),
   weightUnit: z.enum(["kg", "lb"]).default("kg"),
+  /** Custom instructions injected into every AI feature (chat, briefing, plans…). */
+  aiInstructions: z.string().max(2000).nullable().optional(),
 });
 export type SettingsInput = z.infer<typeof settingsSchema>;
 

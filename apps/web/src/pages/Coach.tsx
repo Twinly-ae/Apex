@@ -74,7 +74,7 @@ export function Coach() {
 
   return (
     <div className="flex min-h-[calc(100vh-11rem)] flex-col">
-      <header className="mb-3 flex items-center justify-between gap-2">
+      <header className="sticky top-0 z-20 -mx-4 mb-3 flex items-center justify-between gap-2 bg-bg/90 px-4 py-2 backdrop-blur-lg">
         <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">
           Coach
         </h1>

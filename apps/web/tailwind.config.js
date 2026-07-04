@@ -4,11 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Refined dark — deep neutral-violet base with an indigo/violet accent.
-        bg: "#08080d",
-        surface: "#111119",
-        "surface-2": "#1a1a25",
-        line: "#252533",
+        // All surfaces are CSS variables so themes (dark / true black) can swap
+        // them at runtime from the Appearance setting.
+        bg: "rgb(var(--bg) / <alpha-value>)",
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        "surface-2": "rgb(var(--surface-2) / <alpha-value>)",
+        line: "rgb(var(--line) / <alpha-value>)",
         text: "#f0f0f5",
         muted: "#9494a8",
         // Driven by CSS variables so the user can pick their accent in Settings.

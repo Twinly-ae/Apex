@@ -19,6 +19,7 @@ import {
   generatePlan,
   generateReview,
   getArtifact,
+  personaFor,
 } from "../lib/coach";
 import { buildUserContext } from "../lib/context";
 import { parseOr400 } from "../lib/http";
@@ -154,12 +155,14 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
     }));
 
     const answer = await runAi(reply, async () => {
-      const ctx = await buildUserContext(request.userId);
+      const [ctx, persona] = await Promise.all([
+        buildUserContext(request.userId),
+        personaFor(request.userId),
+      ]);
       return runText({
         system:
-          "You are Apex, the user's private life coach with full view of his data. " +
-          "Answer his question or coach him using his real numbers below. Be concise, " +
-          "practical, and specific. If he asks for a plan or advice, make it actionable.\n\n" +
+          `${persona}\n\nAnswer his question or coach him using his real numbers below. ` +
+          "Be concise, practical, and specific. If he asks for a plan or advice, make it actionable.\n\n" +
           `=== His current data ===\n${ctx}`,
         messages,
         maxTokens: 1024,

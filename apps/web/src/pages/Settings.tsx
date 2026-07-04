@@ -4,10 +4,16 @@ import type { NotificationPrefs, SettingsInput } from "@apex/shared";
 import { ApiError, api } from "../lib/api";
 import {
   ACCENTS,
+  TEXT_SIZES,
+  THEMES,
   getAccentId,
   getAurora,
+  getTextSizeId,
+  getThemeId,
   setAccent,
   setAurora,
+  setTextSize,
+  setTheme,
 } from "../lib/theme";
 import {
   currentSubscription,
@@ -215,13 +221,13 @@ function Toggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
-        checked ? "bg-accent" : "border border-line bg-surface-2"
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+        checked ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-line"
       }`}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-          checked ? "translate-x-5" : "translate-x-0.5"
+        className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          checked ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>
@@ -252,14 +258,95 @@ function ToggleRow({
   );
 }
 
+function AiCoachCard() {
+  const { data: settings } = useSettings();
+  const update = useUpdateSettings();
+  const [text, setText] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const value = text ?? settings?.aiInstructions ?? "";
+
+  async function save() {
+    if (!settings) return;
+    await update.mutateAsync({ ...settings, aiInstructions: value.trim() || null });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <Card title="AI coach">
+      <label className="block">
+        <span className="mb-1.5 block text-sm text-text">
+          Custom instructions
+        </span>
+        <textarea
+          value={value}
+          onChange={(e) => {
+            setText(e.target.value);
+            setSaved(false);
+          }}
+          rows={4}
+          maxLength={2000}
+          placeholder={
+            "Tell your coach how to behave. e.g.\n· Reply in Arabic\n· Be blunt, no fluff\n· Prioritise Twinly over everything\n· Suggest halal food only"
+          }
+          className="w-full resize-none rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-relaxed text-text placeholder:text-muted/60 outline-none transition-colors focus:border-accent"
+        />
+      </label>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        Applied to everything the AI writes — chat, briefing, day plan, tips,
+        and reviews.
+      </p>
+      <button
+        onClick={save}
+        disabled={update.isPending || !settings}
+        className="mt-3 w-full rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-medium text-text active:opacity-80 disabled:opacity-50"
+      >
+        {update.isPending ? "Saving…" : saved ? "Saved ✓" : "Save instructions"}
+      </button>
+    </Card>
+  );
+}
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { id: T; name: string }[];
+  value: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div
+      className="grid w-full gap-1 rounded-xl bg-surface-2 p-1"
+      style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}
+    >
+      {options.map((o) => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          className={`rounded-lg py-2 text-xs font-semibold transition-colors ${
+            value === o.id ? "bg-accent text-white" : "text-muted"
+          }`}
+        >
+          {o.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function AppearanceCard() {
   const [accentId, setAccentId] = useState(getAccentId());
+  const [themeId, setThemeId] = useState(getThemeId());
+  const [textSize, setTextSizeState] = useState(getTextSizeId());
   const [aurora, setAuroraState] = useState(getAurora());
 
   return (
     <Card title="Appearance">
-      <div className="mb-1 text-sm text-text">Accent color</div>
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mb-2 text-sm text-text">Accent color</div>
+      <div className="grid grid-cols-5 gap-3">
         {ACCENTS.map((a) => (
           <button
             key={a.id}
@@ -268,8 +355,10 @@ function AppearanceCard() {
               setAccent(a.id);
               setAccentId(a.id);
             }}
-            className={`pressable grid h-9 w-9 place-items-center rounded-full transition-transform ${
-              accentId === a.id ? "ring-2 ring-white/80 ring-offset-2 ring-offset-surface" : ""
+            className={`pressable mx-auto grid h-10 w-10 place-items-center rounded-full transition-transform ${
+              accentId === a.id
+                ? "ring-2 ring-white/80 ring-offset-2 ring-offset-surface"
+                : ""
             }`}
             style={{ backgroundColor: a.hex }}
           >
@@ -279,6 +368,34 @@ function AppearanceCard() {
           </button>
         ))}
       </div>
+
+      <div className="mt-5 space-y-1.5">
+        <div className="text-sm text-text">Theme</div>
+        <SegmentedControl
+          options={THEMES}
+          value={themeId}
+          onChange={(id) => {
+            setTheme(id);
+            setThemeId(id);
+          }}
+        />
+      </div>
+
+      <div className="mt-4 space-y-1.5">
+        <div className="flex items-baseline justify-between">
+          <div className="text-sm text-text">Text size</div>
+          <span className="text-xs text-muted">applies everywhere</span>
+        </div>
+        <SegmentedControl
+          options={TEXT_SIZES}
+          value={textSize}
+          onChange={(id) => {
+            setTextSize(id);
+            setTextSizeState(id);
+          }}
+        />
+      </div>
+
       <div className="mt-4 border-t border-line pt-1">
         <ToggleRow
           label="Aurora backdrop"
@@ -671,6 +788,7 @@ export function Settings() {
 
       <TargetsCard />
       <AppearanceCard />
+      <AiCoachCard />
       <IntegrationsCard />
       <AppleHealthCard />
       <NotificationsCard />

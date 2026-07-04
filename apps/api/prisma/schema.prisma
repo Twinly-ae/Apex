@@ -61,6 +61,7 @@ model Settings {
   notifyBills         Boolean  @default(true)
   notifyStreak        Boolean  @default(true)
   notifyLogging       Boolean  @default(true)
+  aiInstructions      String? // user-written instructions injected into every AI feature
   updatedAt           DateTime @updatedAt
 }
 

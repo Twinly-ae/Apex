@@ -4,9 +4,21 @@
 
 :root {
   color-scheme: dark;
-  /* Accent as R G B triplets — swapped at runtime by the Appearance setting. */
+  /* Theme tokens as R G B triplets — swapped at runtime by Appearance. */
   --accent: 124 107 255;
   --accent-strong: 93 68 245;
+  --bg: 8 8 13;
+  --surface: 17 17 25;
+  --surface-2: 26 26 37;
+  --line: 37 37 51;
+}
+
+/* True black theme — pure-black base for OLED, slightly deeper cards. */
+html.oled {
+  --bg: 0 0 0;
+  --surface: 10 10 14;
+  --surface-2: 18 18 26;
+  --line: 32 32 44;
 }
 
 html,
@@ -22,7 +34,7 @@ body {
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
   /* Deep base with a faint accent aurora up top — gives the whole app depth. */
-  background-color: #08080d;
+  background-color: rgb(var(--bg));
   background-image:
     radial-gradient(1100px 480px at 50% -220px, rgb(var(--accent) / 0.14), transparent 70%),
     radial-gradient(700px 340px at 110% 0%, rgb(var(--accent-strong) / 0.06), transparent 70%);

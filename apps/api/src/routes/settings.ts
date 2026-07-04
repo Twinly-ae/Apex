@@ -15,6 +15,7 @@ type DbSettings = {
   notifyBills: boolean;
   notifyStreak: boolean;
   notifyLogging: boolean;
+  aiInstructions: string | null;
   updatedAt: Date;
 };
 
@@ -28,6 +29,7 @@ function toSettings(s: DbSettings): Settings {
     maintenanceCalories: s.maintenanceCalories,
     heightCm: s.heightCm,
     weightUnit: s.weightUnit as "kg" | "lb",
+    aiInstructions: s.aiInstructions,
     updatedAt: s.updatedAt.toISOString(),
   };
 }
@@ -66,6 +68,10 @@ export default async function settingsRoutes(
         maintenanceCalories: body.maintenanceCalories,
         heightCm: body.heightCm ?? null,
         weightUnit: body.weightUnit,
+        aiInstructions:
+          body.aiInstructions === undefined
+            ? undefined
+            : body.aiInstructions?.trim() || null,
       },
     });
     return toSettings(settings);

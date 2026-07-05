@@ -1,4 +1,5 @@
 import type { HealthResponse } from "@apex/shared";
+import { healthScore } from "./score";
 
 // Match the app's typefaces: Manrope for text, Space Grotesk for figures.
 const FONT = '"Manrope Variable", system-ui, "Segoe UI", Roboto, sans-serif';
@@ -40,6 +41,7 @@ interface Theme {
   num: string;
   pct: string;
   track: string;
+  tick: string;
   labelDark: boolean; // use the ring's darker stop for labels (light backgrounds)
   shadow: boolean;
 }
@@ -56,7 +58,12 @@ function dateLabel(): string {
   });
 }
 
-function drawArc(
+// Speedometer geometry: 270° dial opening at the bottom (canvas: 0° = +x, y down).
+const GAUGE_START = 135;
+const GAUGE_SWEEP = 270;
+const rad = (d: number) => (d * Math.PI) / 180;
+
+function drawGauge(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
@@ -65,24 +72,43 @@ function drawArc(
   value: number,
   from: string,
   to: string,
-  track: string,
+  t: Theme,
 ) {
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.lineWidth = lw;
   ctx.lineCap = "round";
-  ctx.strokeStyle = track;
+
+  // Dial ticks just inside the arc.
+  const ticks = 26;
+  const ro = r - lw / 2 - 7;
+  const ri = ro - 11;
+  ctx.strokeStyle = t.tick;
+  ctx.lineWidth = 3;
+  for (let i = 0; i < ticks; i++) {
+    const a = rad(GAUGE_START + (GAUGE_SWEEP * i) / (ticks - 1));
+    ctx.beginPath();
+    ctx.moveTo(cx + ro * Math.cos(a), cy + ro * Math.sin(a));
+    ctx.lineTo(cx + ri * Math.cos(a), cy + ri * Math.sin(a));
+    ctx.stroke();
+  }
+
+  // Track + progress.
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, rad(GAUGE_START), rad(GAUGE_START + GAUGE_SWEEP));
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = t.track;
   ctx.stroke();
 
   if (value <= 0) return;
-  const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  const grad = ctx.createLinearGradient(cx - r, cy + r, cx + r, cy - r);
   grad.addColorStop(0, from);
   grad.addColorStop(1, to);
-  const start = -Math.PI / 2;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, start, start + (Math.min(100, value) / 100) * Math.PI * 2);
-  ctx.lineWidth = lw;
-  ctx.lineCap = "round";
+  ctx.arc(
+    cx,
+    cy,
+    r,
+    rad(GAUGE_START),
+    rad(GAUGE_START + (GAUGE_SWEEP * Math.min(100, value)) / 100),
+  );
   ctx.strokeStyle = grad;
   ctx.shadowColor = to;
   ctx.shadowBlur = 22;
@@ -100,39 +126,21 @@ function drawRing(
   value: number | null,
   t: Theme,
 ) {
-  drawArc(ctx, cx, cy, r, lw, value ?? 0, ring.from, ring.to, t.track);
+  drawGauge(ctx, cx, cy, r, lw, value ?? 0, ring.from, ring.to, t);
 
   const num = value == null ? "—" : String(value);
-  const numFont = `800 ${Math.round(r * 0.66)}px ${NUM}`;
-  const pctFont = `700 ${Math.round(r * 0.26)}px ${NUM}`;
-
   ctx.textBaseline = "alphabetic";
-  ctx.textAlign = "left";
-  ctx.font = numFont;
-  const nw = ctx.measureText(num).width;
-  let pw = 0;
-  if (value != null) {
-    ctx.font = pctFont;
-    pw = ctx.measureText("%").width + 6;
-  }
-  const startX = cx - (nw + pw) / 2;
-  const baseY = cy + r * 0.23;
+  ctx.textAlign = "center";
 
   if (t.shadow) {
     ctx.shadowColor = "rgba(0,0,0,0.5)";
     ctx.shadowBlur = 12;
   }
-  ctx.font = numFont;
+  ctx.font = `800 ${Math.round(r * 0.62)}px ${NUM}`;
   ctx.fillStyle = t.num;
-  ctx.fillText(num, startX, baseY);
-  if (value != null) {
-    ctx.font = pctFont;
-    ctx.fillStyle = t.pct;
-    ctx.fillText("%", startX + nw + 6, baseY);
-  }
+  ctx.fillText(num, cx, cy + r * 0.2);
   ctx.shadowBlur = 0;
 
-  ctx.textAlign = "center";
   ctx.font = `700 ${Math.round(r * 0.2)}px ${FONT}`;
   setLS(ctx, 1);
   if (t.shadow) {
@@ -140,7 +148,7 @@ function drawRing(
     ctx.shadowBlur = 8;
   }
   ctx.fillStyle = t.labelDark ? ring.from : ring.to;
-  ctx.fillText(ring.label, cx, cy + r + r * 0.42);
+  ctx.fillText(ring.label, cx, cy + r + r * 0.3);
   ctx.shadowBlur = 0;
   setLS(ctx, 0);
 }
@@ -210,6 +218,8 @@ function statsLine(
   color: string,
 ) {
   const bits: string[] = [];
+  const score = healthScore(health);
+  if (score != null) bits.push(`health score ${score}`);
   if (health.sleepHours != null) bits.push(`${health.sleepHours}h sleep`);
   if (health.restingHr != null) bits.push(`${health.restingHr} bpm RHR`);
   if (health.steps != null) bits.push(`${health.steps.toLocaleString()} steps`);
@@ -247,6 +257,7 @@ const DARK_THEME: Theme = {
   num: "#ffffff",
   pct: "#9393a6",
   track: "rgba(255,255,255,0.10)",
+  tick: "rgba(255,255,255,0.16)",
   labelDark: false,
   shadow: false,
 };
@@ -254,6 +265,7 @@ const SHADOW_THEME: Theme = {
   num: "#ffffff",
   pct: "#e9e9f2",
   track: "rgba(255,255,255,0.20)",
+  tick: "rgba(255,255,255,0.28)",
   labelDark: false,
   shadow: true,
 };
@@ -261,6 +273,7 @@ const LIGHT_THEME: Theme = {
   num: "#14141d",
   pct: "#6b6b80",
   track: "rgba(0,0,0,0.08)",
+  tick: "rgba(0,0,0,0.14)",
   labelDark: true,
   shadow: false,
 };

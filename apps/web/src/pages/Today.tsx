@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
 import { DayPlanBlocks } from "../components/DayPlanBlocks";
+import { WellbeingStrip } from "../components/health/WellbeingStrip";
 import { HabitsRow } from "../components/HabitsRow";
 import { MacroBar } from "../components/MacroBar";
 import { StatCard } from "../components/StatCard";
@@ -118,6 +119,9 @@ export function Today() {
           </Link>
         </div>
       </header>
+
+      {/* Morning wellbeing widget — gauges + score, taps through to Health */}
+      {!hidden.has("wellbeing") && <WellbeingStrip />}
 
       {/* HERO — the one number that matters: how much can I still eat, + protein */}
       {!hidden.has("energy") && (

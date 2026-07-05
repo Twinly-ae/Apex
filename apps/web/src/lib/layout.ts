@@ -26,6 +26,7 @@ export const pageById = (id: string): PageDef =>
 
 /** Sections of the Today page that can be hidden. */
 export const HOME_SECTIONS: { id: string; label: string }[] = [
+  { id: "wellbeing", label: "Wellbeing gauges" },
   { id: "energy", label: "Energy hero" },
   { id: "briefing", label: "Briefing" },
   { id: "plan", label: "Focus & day plan" },

@@ -1,4 +1,5 @@
-import { Check } from "lucide-react";
+import { Check, LayoutGrid, Plus } from "lucide-react";
+import { PAGE_ICONS } from "../components/BottomNav";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { NotificationPrefs, SettingsInput } from "@apex/shared";
 import { ApiError, api } from "../lib/api";
@@ -9,6 +10,7 @@ import {
   getHiddenSections,
   getHomeId,
   getNavSlots,
+  pageById,
   setHomeId,
   setNavSlot,
   setSectionHidden,
@@ -238,8 +240,8 @@ function Toggle({
       }`}
     >
       <span
-        className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          checked ? "translate-x-5" : "translate-x-0"
+        className={`absolute left-1 top-1 h-5 w-5 rounded-full shadow-sm transition-all duration-200 ${
+          checked ? "translate-x-5 bg-white" : "translate-x-0 bg-muted/50"
         }`}
       />
     </button>
@@ -275,13 +277,12 @@ function HomeNavCard() {
   const home = getHomeId();
   const slots = getNavSlots();
   const hidden = getHiddenSections();
+  const [activeSlot, setActiveSlot] = useState(0);
 
   return (
     <Card title="Home & navigation">
       <label className="block">
-        <span className="mb-1.5 block text-sm text-text">
-          Home page <span className="text-xs text-muted">(opens on launch)</span>
-        </span>
+        <span className="mb-1.5 block text-sm text-text">Home page</span>
         <select
           value={home}
           onChange={(e) => setHomeId(e.target.value)}
@@ -294,30 +295,69 @@ function HomeNavCard() {
           ))}
         </select>
       </label>
+      <p className="mt-1.5 text-xs text-muted">
+        The app opens on{" "}
+        <span className="font-medium text-text">{pageById(home).label}</span>{" "}
+        when launched or reopened after a break.
+      </p>
 
-      <div className="mt-4">
-        <div className="mb-1.5 text-sm text-text">
-          Tab bar{" "}
-          <span className="text-xs text-muted">
-            (3 slots — everything else lives in More)
+      {/* Tab bar — live preview; tap a slot, then tap the page to put there */}
+      <div className="mt-5 text-sm text-text">Tab bar</div>
+      <p className="mb-2 mt-0.5 text-xs text-muted">
+        1. Tap a slot below · 2. Tap the page to place there
+      </p>
+      <div className="flex items-center rounded-full border border-line bg-surface-2 px-1 py-1.5">
+        {[0, 1].map((i) => (
+          <SlotPreview
+            key={i}
+            id={slots[i]}
+            active={activeSlot === i}
+            onClick={() => setActiveSlot(i)}
+          />
+        ))}
+        <div className="flex flex-1 justify-center">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-strong text-white">
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {slots.map((slot, i) => (
-            <select
-              key={i}
-              value={slot}
-              onChange={(e) => setNavSlot(i, e.target.value)}
-              className={`${selectClass} !px-2 text-sm`}
-            >
-              {PAGES.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          ))}
+        <SlotPreview
+          id={slots[2]}
+          active={activeSlot === 2}
+          onClick={() => setActiveSlot(2)}
+        />
+        <div className="flex flex-1 flex-col items-center gap-0.5 opacity-50">
+          <LayoutGrid className="h-[18px] w-[18px] text-muted" strokeWidth={2} />
+          <span className="text-[9px] font-semibold text-muted">More</span>
         </div>
+      </div>
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        {PAGES.map((p) => {
+          const Icon = PAGE_ICONS[p.id];
+          const slotIdx = slots.indexOf(p.id);
+          const inBar = slotIdx >= 0;
+          return (
+            <button
+              key={p.id}
+              onClick={() => {
+                setNavSlot(activeSlot, p.id);
+                setActiveSlot((activeSlot + 1) % 3);
+              }}
+              className={`pressable flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm ${
+                inBar
+                  ? "border-accent/40 bg-accent/10 font-semibold text-accent"
+                  : "border-line bg-surface-2 text-text"
+              }`}
+            >
+              {Icon && <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />}
+              <span className="min-w-0 flex-1 truncate">{p.label}</span>
+              {inBar && (
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-[10px] font-bold text-white">
+                  {slotIdx + 1}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="mt-4 border-t border-line pt-2">
@@ -332,6 +372,41 @@ function HomeNavCard() {
         ))}
       </div>
     </Card>
+  );
+}
+
+function SlotPreview({
+  id,
+  active,
+  onClick,
+}: {
+  id: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const page = pageById(id);
+  const Icon = PAGE_ICONS[page.id];
+  return (
+    <button
+      onClick={onClick}
+      className={`pressable flex flex-1 flex-col items-center gap-0.5 rounded-2xl py-1.5 ${
+        active ? "bg-accent/15 ring-1 ring-accent" : ""
+      }`}
+    >
+      {Icon && (
+        <Icon
+          className={`h-[18px] w-[18px] ${active ? "text-accent" : "text-muted"}`}
+          strokeWidth={2}
+        />
+      )}
+      <span
+        className={`max-w-full truncate px-1 text-[9px] font-semibold ${
+          active ? "text-accent" : "text-muted"
+        }`}
+      >
+        {page.label}
+      </span>
+    </button>
   );
 }
 

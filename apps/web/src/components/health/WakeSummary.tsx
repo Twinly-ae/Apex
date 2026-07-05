@@ -1,6 +1,7 @@
 import { Activity, Flame, Heart, Leaf, MoonStar } from "lucide-react";
 import type { ReactNode } from "react";
 import type { HealthResponse } from "@apex/shared";
+import { healthScore } from "../../lib/score";
 
 const COLORS = {
   sleep: "#a5b4fc",
@@ -38,16 +39,6 @@ function InlineIcon({
       strokeWidth={2.4}
     />
   );
-}
-
-/** Composite 0–100 health score from whatever wellbeing signals exist. */
-export function healthScore(h: HealthResponse): number | null {
-  const parts: number[] = [];
-  if (h.scores.sleep != null) parts.push(h.scores.sleep);
-  if (h.scores.recovery != null) parts.push(h.scores.recovery);
-  if (h.scores.stress != null) parts.push(100 - h.scores.stress);
-  if (parts.length === 0) return null;
-  return Math.round(parts.reduce((s, n) => s + n, 0) / parts.length);
 }
 
 /** Apple-Health-widget-style sentence: the morning story in one line. */

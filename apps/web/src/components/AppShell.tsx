@@ -8,7 +8,7 @@ export function AppShell() {
   const location = useLocation();
   const booted = useRef(false);
 
-  // Open on the user's chosen home page (once, on app launch only).
+  // Open on the user's chosen home page (on launch only).
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
@@ -18,6 +18,22 @@ export function AppShell() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // iOS keeps PWAs alive for days, so a "launch" rarely happens. Treat coming
+  // back after a long break as a fresh open and land on the chosen home page.
+  useEffect(() => {
+    let hiddenAt: number | null = null;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (hiddenAt && Date.now() - hiddenAt > 15 * 60_000) {
+        navigate(pageById(getHomeId()).route, { replace: true });
+        hiddenAt = null;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [navigate]);
 
   return (
     <div className="mx-auto min-h-full max-w-md">

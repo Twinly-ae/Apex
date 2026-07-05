@@ -151,6 +151,16 @@ export async function buildUserContext(userId: string): Promise<string> {
   const protein = Math.round(meals.reduce((s, m) => s + m.protein, 0));
   const waterMl = water.reduce((s, w) => s + w.amountMl, 0);
 
+  // Composite health score shown in the app — keep the coach's number in sync.
+  const scoreParts = [
+    health.scores.sleep,
+    health.scores.recovery,
+    health.scores.stress != null ? 100 - health.scores.stress : null,
+  ].filter((n): n is number => n != null);
+  const healthScore = scoreParts.length
+    ? Math.round(scoreParts.reduce((s, n) => s + n, 0) / scoreParts.length)
+    : null;
+
   const lines = [
     `Today: ${dayString()}.`,
     settings
@@ -161,7 +171,8 @@ export async function buildUserContext(userId: string): Promise<string> {
     health.hasData
       ? `Apple Health today: ${health.steps ?? "?"} steps, ${health.activeEnergyKcal ?? "?"} kcal active energy, slept ${health.sleepHours ?? "?"}h. ` +
         `Wellbeing 0–100 (higher better, except strain): sleep ${health.scores.sleep ?? "?"}, recovery ${health.scores.recovery ?? "?"}, strain ${health.scores.stress ?? "?"} ` +
-        `(HRV ${health.hrv ?? "?"}ms vs ${health.hrvBaseline ?? "?"} baseline, resting HR ${health.restingHr ?? "?"} vs ${health.hrBaseline ?? "?"}; REM ${health.remHours ?? "?"}h, deep ${health.deepHours ?? "?"}h). Factor recovery into today's training advice.`
+        `(HRV ${health.hrv ?? "?"}ms vs ${health.hrvBaseline ?? "?"} baseline, resting HR ${health.restingHr ?? "?"} vs ${health.hrBaseline ?? "?"}; REM ${health.remHours ?? "?"}h, deep ${health.deepHours ?? "?"}h). ` +
+        `Composite health score today: ${healthScore ?? "?"}/100. Factor recovery into today's training advice.`
       : "Apple Health: nothing synced today (no sleep, recovery, steps, or active energy) — can't assess recovery; remind him to sync his watch.",
     trainingLine,
     splitLine,

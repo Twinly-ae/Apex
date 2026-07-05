@@ -16,6 +16,7 @@ import { selectClass } from "../components/ui/Sheet";
 import { StatCard } from "../components/StatCard";
 import { TrainingPlanEditor } from "../components/TrainingPlanEditor";
 import { HealthSyncCard } from "../components/health/HealthSyncCard";
+import { WakeSummary } from "../components/health/WakeSummary";
 import { Wellbeing } from "../components/health/Wellbeing";
 import { WorkoutSheet } from "../components/logging/WorkoutSheet";
 import { kg } from "../lib/format";
@@ -297,6 +298,9 @@ export function Health() {
         <>
       {/* Wellbeing rings — sleep / recovery / stress, tap for detail */}
       <Wellbeing health={health} />
+
+      {/* The morning story in one line (Apple-Health-widget style) */}
+      {health?.hasData && <WakeSummary health={health} />}
 
       {/* Apple Health bridge diagnostic — shows why scores may be blank */}
       <HealthSyncCard />

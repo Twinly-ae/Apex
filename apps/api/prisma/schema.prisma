@@ -62,6 +62,8 @@ model Settings {
   notifyStreak        Boolean  @default(true)
   notifyLogging       Boolean  @default(true)
   aiInstructions      String? // user-written instructions injected into every AI feature
+  activityStatus      String   @default("active") // active | sick | injured | break
+  statusUntil         DateTime? // status auto-expires back to active after this (null = until changed)
   updatedAt           DateTime @updatedAt
 }
 

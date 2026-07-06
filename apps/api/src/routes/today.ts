@@ -9,6 +9,7 @@ import { healthSummary } from "../lib/health";
 import { loadAccounts, netWorthTotal } from "../lib/money";
 import { progress } from "../lib/nutrition";
 import { toTask } from "../lib/serializers";
+import { effectiveStatus } from "../lib/status";
 import {
   dayRange,
   dayString,
@@ -225,6 +226,8 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
       netWorthAed: accounts.length ? netWorthTotal(accounts) : null,
       twinlyRevenueToday: todayRevenue._sum.revenueAed,
       briefingByAI: Boolean(aiBriefing),
+      activityStatus: effectiveStatus(settings).status,
+      statusUntil: effectiveStatus(settings).until?.toISOString() ?? null,
     };
   });
 }

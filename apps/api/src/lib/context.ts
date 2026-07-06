@@ -3,6 +3,7 @@ import { loadGoals } from "./goals";
 import { computeHealth } from "./health";
 import { loadAccounts, netWorthTotal } from "./money";
 import { computePrs, e1rm, progressionSummary } from "./prs";
+import { STATUS_LABEL, effectiveStatus } from "./status";
 import { dayRange, dayString, localWeekdayMon0 } from "./time";
 
 /** A compact, plain-text snapshot of the user's day for the AI to reason over. */
@@ -66,16 +67,26 @@ export async function buildUserContext(userId: string): Promise<string> {
   ]);
 
   // Today's planned training split + whether it's been done.
+  const status = settings ? effectiveStatus(settings) : { status: "active" as const, until: null };
   const todayLabel = trainingPlan?.days?.[localWeekdayMon0()]?.trim();
   const isRestDay = !todayLabel || /^rest$/i.test(todayLabel);
   const workoutDone = plannedWorkouts.length > 0;
-  const trainingLine = isRestDay
-    ? "Training today: REST day (no gym session planned)."
-    : `Training today: ${todayLabel} day — ${
-        workoutDone
-          ? "already logged ✓"
-          : "NOT done yet; block a ~60–75min gym session"
-      }.`;
+  const trainingLine =
+    status.status !== "active"
+      ? `Training today: SKIPPED — he is ${STATUS_LABEL[status.status]}. Do NOT schedule or push training; prioritise rest, hydration and recovery food.`
+      : isRestDay
+        ? "Training today: REST day (no gym session planned)."
+        : `Training today: ${todayLabel} day — ${
+            workoutDone
+              ? "already logged ✓"
+              : "NOT done yet; block a ~60–75min gym session"
+          }.`;
+  const statusLine =
+    status.status !== "active"
+      ? `Activity status: ${STATUS_LABEL[status.status].toUpperCase()}${
+          status.until ? ` (until ${status.until.toISOString().slice(0, 10)})` : ""
+        }.`
+      : null;
   const splitLine = trainingPlan?.days?.length
     ? `Weekly split (Mon→Sun): ${trainingPlan.days.join(", ")}.`
     : "Weekly split: not set.";
@@ -163,6 +174,7 @@ export async function buildUserContext(userId: string): Promise<string> {
 
   const lines = [
     `Today: ${dayString()}.`,
+    ...(statusLine ? [statusLine] : []),
     settings
       ? `Targets: ${settings.calorieTarget} kcal, ${settings.proteinTarget}g protein, ${settings.fatTarget}g fat, ${settings.carbTarget}g carbs, ${settings.waterTargetMl}ml water (recomp: lose fat + gain muscle).`
       : "Targets: not set.",

@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
 import { DayPlanBlocks } from "../components/DayPlanBlocks";
+import { STATUS_META, StatusSheet } from "../components/StatusSheet";
 import { WellbeingStrip } from "../components/health/WellbeingStrip";
 import { HabitsRow } from "../components/HabitsRow";
 import { MacroBar } from "../components/MacroBar";
@@ -66,6 +67,7 @@ export function Today() {
   const { data: health } = useHealth();
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   useLayoutVersion();
   const hidden = getHiddenSections();
   const aiOn = briefing.data?.configured ?? false;
@@ -103,6 +105,24 @@ export function Today() {
           </h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {(() => {
+            const st = STATUS_META[data.activityStatus];
+            const StIcon = st.icon;
+            return (
+              <button
+                onClick={() => setStatusOpen(true)}
+                aria-label={`Activity status: ${st.label}`}
+                className="pressable grid h-9 w-9 place-items-center rounded-full border"
+                style={{
+                  color: st.color,
+                  borderColor: `${st.color}66`,
+                  backgroundColor: `${st.color}1f`,
+                }}
+              >
+                <StIcon className="h-[18px] w-[18px]" strokeWidth={2.2} />
+              </button>
+            );
+          })()}
           <Link
             to="/day"
             aria-label="History"
@@ -298,7 +318,22 @@ export function Today() {
               {data.plannedWorkout ?? "Rest day"}
             </div>
           </div>
-          {data.plannedWorkout ? (
+          {data.activityStatus !== "active" ? (
+            <button
+              onClick={() => setStatusOpen(true)}
+              className="pressable inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
+              style={{
+                color: STATUS_META[data.activityStatus].color,
+                backgroundColor: `${STATUS_META[data.activityStatus].color}1f`,
+              }}
+            >
+              {(() => {
+                const StIcon = STATUS_META[data.activityStatus].icon;
+                return <StIcon className="h-4 w-4" strokeWidth={2.2} />;
+              })()}
+              {STATUS_META[data.activityStatus].label} — resting
+            </button>
+          ) : data.plannedWorkout ? (
             data.plannedWorkoutDone ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-good/15 px-3 py-1 text-sm text-good">
                 <Check className="h-4 w-4" strokeWidth={2.5} />
@@ -323,7 +358,10 @@ export function Today() {
         </div>
 
         {/* Recovery-aware advisory on training days */}
-        {lowRecovery != null && data.plannedWorkout && !data.plannedWorkoutDone && (
+        {data.activityStatus === "active" &&
+          lowRecovery != null &&
+          data.plannedWorkout &&
+          !data.plannedWorkoutDone && (
           <p className="mt-3 rounded-xl bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn">
             Recovery is low ({lowRecovery}) — consider lighter loads or extra
             warm-up today.
@@ -331,7 +369,9 @@ export function Today() {
         )}
 
         {/* Sync feedback + manual fallback */}
-        {data.plannedWorkout && !data.plannedWorkoutDone && (
+        {data.activityStatus === "active" &&
+          data.plannedWorkout &&
+          !data.plannedWorkoutDone && (
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
             <p className="text-xs text-muted">
               {syncHevy.isError
@@ -476,6 +516,11 @@ export function Today() {
         open={workoutOpen}
         onClose={() => setWorkoutOpen(false)}
         defaultTitle={data.plannedWorkout ?? undefined}
+      />
+      <StatusSheet
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        current={data.activityStatus}
       />
     </div>
   );

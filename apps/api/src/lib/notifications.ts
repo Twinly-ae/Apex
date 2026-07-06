@@ -3,6 +3,7 @@
 // deduped via NotificationLog so the user gets at most one ping per event.
 import { prisma } from "../db";
 import { sendToUser } from "./push";
+import { effectiveStatus } from "./status";
 import { dayRange, dayString, localHour, localWeekdayMon0 } from "./time";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -190,7 +191,8 @@ export async function runNotificationChecks(): Promise<void> {
     const s = u.settings;
     try {
       if (s?.notifyBills ?? true) await checkBills(u.id);
-      if (s?.notifyStreak ?? true) await checkStreak(u.id);
+      const resting = s ? effectiveStatus(s).status !== "active" : false;
+      if ((s?.notifyStreak ?? true) && !resting) await checkStreak(u.id);
       if (s?.notifyLogging ?? true) {
         await checkLogging(u.id);
         await checkMacros(u.id, s);

@@ -44,6 +44,16 @@ export interface PublicUser {
 /* Settings / targets (recomp — editable)                                     */
 /* -------------------------------------------------------------------------- */
 
+export const activityStatusSchema = z.enum(["active", "sick", "injured", "break"]);
+export type ActivityStatus = z.infer<typeof activityStatusSchema>;
+
+/** Body for PATCH /api/settings/status — days=null keeps it until changed. */
+export const setStatusSchema = z.object({
+  status: activityStatusSchema,
+  days: z.number().int().min(1).max(60).nullable().optional(),
+});
+export type SetStatusInput = z.infer<typeof setStatusSchema>;
+
 export const settingsSchema = z.object({
   calorieTarget: z.number().int().min(800).max(8000),
   proteinTarget: z.number().int().min(0).max(500),
@@ -59,6 +69,8 @@ export const settingsSchema = z.object({
 export type SettingsInput = z.infer<typeof settingsSchema>;
 
 export interface Settings extends SettingsInput {
+  activityStatus: ActivityStatus;
+  statusUntil: string | null;
   updatedAt: string;
 }
 
@@ -325,6 +337,9 @@ export interface TodaySummary {
   twinlyRevenueToday: number | null;
   /** True when the briefing above was written by Claude (Phase 4). */
   briefingByAI: boolean;
+  /** Effective activity status (sick/injured/break pauses training pressure). */
+  activityStatus: ActivityStatus;
+  statusUntil: string | null;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,5 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { DEFAULT_SETTINGS, settingsSchema, type Settings } from "@apex/shared";
+import {
+  type ActivityStatus,
+  DEFAULT_SETTINGS,
+  setStatusSchema,
+  settingsSchema,
+  type Settings,
+} from "@apex/shared";
+import { effectiveStatus } from "../lib/status";
 import { prisma } from "../db";
 import { parseOr400 } from "../lib/http";
 
@@ -16,6 +23,8 @@ type DbSettings = {
   notifyStreak: boolean;
   notifyLogging: boolean;
   aiInstructions: string | null;
+  activityStatus: string;
+  statusUntil: Date | null;
   updatedAt: Date;
 };
 
@@ -30,6 +39,8 @@ function toSettings(s: DbSettings): Settings {
     heightCm: s.heightCm,
     weightUnit: s.weightUnit as "kg" | "lb",
     aiInstructions: s.aiInstructions,
+    activityStatus: effectiveStatus(s).status,
+    statusUntil: effectiveStatus(s).until?.toISOString() ?? null,
     updatedAt: s.updatedAt.toISOString(),
   };
 }
@@ -73,6 +84,22 @@ export default async function settingsRoutes(
             ? undefined
             : body.aiInstructions?.trim() || null,
       },
+    });
+    return toSettings(settings);
+  });
+
+  // PATCH /api/settings/status — set activity status (sick / injured / break).
+  app.patch("/status", async (request, reply) => {
+    const body = parseOr400(setStatusSchema, request.body, reply);
+    if (!body) return;
+    await ensureSettings(request.userId);
+    const statusUntil =
+      body.status === "active" || body.days == null
+        ? null
+        : new Date(Date.now() + body.days * 86_400_000);
+    const settings = await prisma.settings.update({
+      where: { userId: request.userId },
+      data: { activityStatus: body.status satisfies ActivityStatus, statusUntil },
     });
     return toSettings(settings);
   });

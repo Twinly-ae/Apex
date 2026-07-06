@@ -21,6 +21,7 @@ import type {
   Meal,
   MealDay,
   PublicUser,
+  SetStatusInput,
   Settings,
   SettingsInput,
   Task,
@@ -312,6 +313,19 @@ export function useSettings() {
   return useQuery({
     queryKey: keys.settings,
     queryFn: () => api.get<Settings>("/api/settings"),
+  });
+}
+
+export function useSetActivityStatus() {
+  const qc = useQueryClient();
+  const invalidateDaily = useInvalidateDaily();
+  return useMutation({
+    mutationFn: (input: SetStatusInput) =>
+      api.patch<Settings>("/api/settings/status", input),
+    onSuccess: (settings) => {
+      qc.setQueryData(keys.settings, settings);
+      invalidateDaily();
+    },
   });
 }
 

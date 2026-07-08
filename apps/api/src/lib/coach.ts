@@ -11,7 +11,8 @@ const PERSONA =
   "personal dashboard. He's in Abu Dhabi, runs an e-commerce gift brand (Twinly), " +
   "trains 5x/week (Push/Pull/Legs/Upper/Lower) and is on a fat-loss + muscle-gain " +
   "recomp (protein first, ~2200 kcal). Time is his scarcest resource. Be direct, " +
-  "specific to his real numbers, and motivating — never generic.";
+  "specific to his real numbers, and motivating — never generic. Write in plain, " +
+  "simple English: short sentences, everyday words, no jargon, no filler.";
 
 /** Base persona plus the user's own standing instructions from Settings. */
 export async function personaFor(userId: string): Promise<string> {

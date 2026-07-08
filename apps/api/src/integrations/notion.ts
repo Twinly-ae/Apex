@@ -52,6 +52,7 @@ interface PropMap {
   amount?: string;
   date?: string;
   category?: string;
+  categoryType?: "select" | "status" | "multi_select";
   title?: string;
 }
 
@@ -71,9 +72,45 @@ async function discoverProps(dbId: string): Promise<PropMap> {
         prop.type === "multi_select")
     ) {
       map.category = name;
+      map.categoryType = prop.type as PropMap["categoryType"];
     }
   }
   return map;
+}
+
+/**
+ * Create a new expense row, mapping onto whatever the database's properties
+ * are actually called. Returns the created page id.
+ */
+export async function createExpense(input: {
+  title: string;
+  amountAed: number;
+  date?: string; // YYYY-MM-DD
+  category?: string;
+}): Promise<string> {
+  const dbId = env.NOTION_EXPENSES_DB_ID as string;
+  const props = await discoverProps(dbId);
+  const properties: Record<string, unknown> = {};
+  if (props.title) {
+    properties[props.title] = { title: [{ text: { content: input.title } }] };
+  }
+  if (props.amount) properties[props.amount] = { number: input.amountAed };
+  if (props.date && input.date) {
+    properties[props.date] = { date: { start: input.date } };
+  }
+  // select/multi_select auto-create options; status can't, so skip it there.
+  if (props.category && input.category && props.categoryType !== "status") {
+    properties[props.category] =
+      props.categoryType === "multi_select"
+        ? { multi_select: [{ name: input.category }] }
+        : { select: { name: input.category } };
+  }
+
+  const page = await notionFetch<{ id: string }>("/pages", {
+    method: "POST",
+    body: JSON.stringify({ parent: { database_id: dbId }, properties }),
+  });
+  return page.id;
 }
 
 function readTitle(prop: unknown): string | null {

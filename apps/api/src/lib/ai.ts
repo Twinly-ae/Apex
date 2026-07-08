@@ -70,6 +70,66 @@ export async function runText(opts: RunOpts): Promise<string> {
     .trim();
 }
 
+export interface AgentResult {
+  text: string;
+  /** Human-readable results of every tool action taken this turn. */
+  actions: string[];
+}
+
+/**
+ * Tool-use loop: lets Claude call app tools (log a meal, add a task, write a
+ * Notion expense…) and keeps going until it produces a final text answer.
+ */
+export async function runAgent(opts: {
+  system: string;
+  messages: Anthropic.MessageParam[];
+  tools: Anthropic.Tool[];
+  execute: (name: string, input: unknown) => Promise<string>;
+  maxTokens?: number;
+}): Promise<AgentResult> {
+  const msgs: Anthropic.MessageParam[] = [...opts.messages];
+  const actions: string[] = [];
+
+  for (let round = 0; round < 6; round++) {
+    const res = await getClient().messages.create({
+      model: MODEL,
+      max_tokens: opts.maxTokens ?? 1024,
+      system: opts.system,
+      messages: msgs,
+      tools: opts.tools,
+    });
+
+    if (res.stop_reason === "tool_use") {
+      const results: Anthropic.ToolResultBlockParam[] = [];
+      for (const block of res.content) {
+        if (block.type !== "tool_use") continue;
+        let out: string;
+        try {
+          out = await opts.execute(block.name, block.input);
+          actions.push(out);
+        } catch (err) {
+          out = `Error: ${err instanceof Error ? err.message : String(err)}`;
+        }
+        results.push({ type: "tool_result", tool_use_id: block.id, content: out });
+      }
+      msgs.push({ role: "assistant", content: res.content });
+      msgs.push({ role: "user", content: results });
+      continue;
+    }
+
+    const text = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    return { text, actions };
+  }
+  return {
+    text: "I hit my action limit for one message — some steps may not have completed.",
+    actions,
+  };
+}
+
 /** Ask for JSON and parse it defensively (handles code fences / stray prose). */
 export async function runJSON<T>(opts: RunOpts): Promise<T> {
   const text = await runText({ ...opts, thinking: false });

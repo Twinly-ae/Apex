@@ -10,8 +10,9 @@ import {
   type AiMessageParam,
   aiConfigured,
   aiErrorMessage,
-  runText,
+  runAgent,
 } from "../lib/ai";
+import { COACH_TOOLS, executeCoachTool } from "../lib/coachTools";
 import {
   generateBriefing,
   generateHealthTips,
@@ -154,22 +155,28 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       content: m.content,
     }));
 
-    const answer = await runAi(reply, async () => {
+    const result = await runAi(reply, async () => {
       const [ctx, persona] = await Promise.all([
         buildUserContext(request.userId),
         personaFor(request.userId),
       ]);
-      return runText({
+      return runAgent({
         system:
           `${persona}\n\nAnswer his question or coach him using his real numbers below. ` +
           "Be concise, practical, and specific. If he asks for a plan or advice, make it actionable.\n\n" +
+          "You can ACT for him with your tools — when he asks to add, log, or track something " +
+          "(a task, meal, water, weight, his status, a Notion expense), call the matching tool " +
+          "instead of giving instructions, then confirm what you did in one short line. " +
+          "If a tool errors, tell him honestly what failed.\n\n" +
           `=== His current data ===\n${ctx}`,
         messages,
+        tools: COACH_TOOLS,
+        execute: (name, input) => executeCoachTool(request.userId, name, input),
         maxTokens: 1024,
-        thinking: true,
       });
     });
-    if (answer === undefined) return;
+    if (result === undefined) return;
+    const answer = result.text || result.actions.join("\n") || "Done.";
 
     const saved = await prisma.aiMessage.create({
       data: {

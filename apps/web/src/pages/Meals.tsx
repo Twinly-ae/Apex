@@ -62,6 +62,7 @@ function MealRow({ m }: { m: Meal }) {
             protein: m.protein,
             carbs: m.carbs,
             fat: m.fat,
+            source: "manual",
           })
         }
         disabled={add.isPending}

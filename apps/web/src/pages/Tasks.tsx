@@ -1,7 +1,9 @@
 import {
   Bell,
+  CalendarDays,
   Check,
   ChevronDown,
+  List,
   Lock,
   Pencil,
   Play,
@@ -14,6 +16,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { Task } from "@apex/shared";
 import { TaskSheet } from "../components/logging/TaskSheet";
+import { TaskCalendar } from "../components/tasks/TaskCalendar";
 import {
   useDeleteTask,
   useStartTaskTimer,
@@ -260,6 +263,7 @@ export function Tasks() {
   const [addOpen, setAddOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   const tasks = data ?? [];
   const open = tasks.filter((t) => !t.done);
@@ -267,15 +271,41 @@ export function Tasks() {
 
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-2">
         <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text">Tasks</h1>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3.5 py-2 text-sm font-semibold text-white shadow-glow active:scale-[0.99]"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          Add
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-full border border-line bg-surface p-0.5">
+            <button
+              type="button"
+              aria-label="List view"
+              aria-pressed={view === "list"}
+              onClick={() => setView("list")}
+              className={`rounded-full p-2 transition-colors ${
+                view === "list" ? "bg-accent text-white" : "text-muted"
+              }`}
+            >
+              <List className="h-4 w-4" strokeWidth={2.5} />
+            </button>
+            <button
+              type="button"
+              aria-label="Calendar view"
+              aria-pressed={view === "calendar"}
+              onClick={() => setView("calendar")}
+              className={`rounded-full p-2 transition-colors ${
+                view === "calendar" ? "bg-accent text-white" : "text-muted"
+              }`}
+            >
+              <CalendarDays className="h-4 w-4" strokeWidth={2.5} />
+            </button>
+          </div>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3.5 py-2 text-sm font-semibold text-white shadow-glow active:scale-[0.99]"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Add
+          </button>
+        </div>
       </header>
 
       {isLoading ? (
@@ -284,6 +314,8 @@ export function Tasks() {
         <p className="py-8 text-center text-sm text-muted">
           No tasks yet. Add your first one.
         </p>
+      ) : view === "calendar" ? (
+        <TaskCalendar tasks={tasks} onEdit={setEditTask} />
       ) : (
         <>
           <section>

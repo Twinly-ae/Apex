@@ -4,7 +4,9 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "../db";
 import { createExpense, notionConfigured } from "../integrations/notion";
-import { dayString } from "./time";
+import { syncHevyForUser } from "./hevySync";
+import { bankedMinutes, nextOccurrence } from "./tasks";
+import { dayRange, dayString } from "./time";
 
 export const COACH_TOOLS: Anthropic.Tool[] = [
   {
@@ -68,6 +70,118 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
         days: { type: "number", description: "Auto-expire after N days (omit = until changed)" },
       },
       required: ["status"],
+    },
+  },
+  {
+    name: "update_task",
+    description:
+      "Edit an open task: rename it, change priority, due date, estimate, or notes. Match the task by part of its title.",
+    input_schema: {
+      type: "object",
+      properties: {
+        task: { type: "string", description: "Part of the task's title" },
+        title: { type: "string", description: "New title" },
+        priority: { type: "number", enum: [1, 2, 3] },
+        dueDate: { type: "string", description: "New due date/time (ISO or YYYY-MM-DD)" },
+        estMinutes: { type: "number" },
+        notes: { type: "string" },
+      },
+      required: ["task"],
+    },
+  },
+  {
+    name: "complete_task",
+    description: "Mark an open task as done. Repeating tasks schedule their next occurrence.",
+    input_schema: {
+      type: "object",
+      properties: { task: { type: "string", description: "Part of the task's title" } },
+      required: ["task"],
+    },
+  },
+  {
+    name: "delete_task",
+    description:
+      "Delete an open task he doesn't want anymore. Set deleteAll=true only when he wants every task matching the title gone.",
+    input_schema: {
+      type: "object",
+      properties: {
+        task: { type: "string", description: "Part of the task's title" },
+        deleteAll: { type: "boolean", description: "Delete every matching open task (default false)" },
+      },
+      required: ["task"],
+    },
+  },
+  {
+    name: "dedupe_tasks",
+    description:
+      "Remove duplicate open tasks (same title logged twice) — keeps the oldest copy of each and deletes the rest.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "delete_meal",
+    description:
+      "Delete a meal logged today (mislogged or duplicate). Without a description, deletes the most recent one.",
+    input_schema: {
+      type: "object",
+      properties: {
+        description: { type: "string", description: "Part of the meal's description (optional)" },
+      },
+    },
+  },
+  {
+    name: "tick_habit",
+    description: "Tick (or untick) one of his daily habits for today.",
+    input_schema: {
+      type: "object",
+      properties: {
+        habit: { type: "string", description: "Part of the habit's name" },
+        done: { type: "boolean", description: "false to untick (default true)" },
+      },
+      required: ["habit"],
+    },
+  },
+  {
+    name: "update_targets",
+    description:
+      "Change his daily nutrition targets: calories, protein, carbs, fat, or water.",
+    input_schema: {
+      type: "object",
+      properties: {
+        calorieTarget: { type: "number", description: "kcal/day" },
+        proteinTarget: { type: "number", description: "g/day" },
+        carbTarget: { type: "number", description: "g/day" },
+        fatTarget: { type: "number", description: "g/day" },
+        waterTargetMl: { type: "number", description: "ml/day" },
+      },
+    },
+  },
+  {
+    name: "sync_workouts",
+    description: "Import his latest workouts from Hevy right now.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "add_bill",
+    description: "Track a new recurring bill or subscription.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        amountAed: { type: "number" },
+        cadence: { type: "string", enum: ["weekly", "monthly", "yearly", "once"] },
+        dueDate: { type: "string", description: "Next due date YYYY-MM-DD" },
+      },
+      required: ["name", "amountAed"],
+    },
+  },
+  {
+    name: "mark_bill_paid",
+    description:
+      "Mark a bill as paid — rolls its due date forward one cadence (one-time bills are removed).",
+    input_schema: {
+      type: "object",
+      properties: { bill: { type: "string", description: "Part of the bill's name" } },
+      required: ["bill"],
     },
   },
   {
@@ -182,6 +296,37 @@ async function findGoal(userId: string, q: string) {
 
 const GOAL_CATEGORIES = ["business", "fitness", "money", "study", "personal"];
 
+/** Open tasks whose title contains q, oldest first, plus all open titles. */
+async function findOpenTasks(userId: string, q: string) {
+  const tasks = await prisma.task.findMany({
+    where: { userId, done: false },
+    include: { steps: { orderBy: { order: "asc" } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const needle = q.trim().toLowerCase();
+  const hits = tasks.filter((t) => t.title.toLowerCase().includes(needle));
+  const titles = tasks.map((t) => `"${t.title}"`).slice(0, 20).join(", ") || "none";
+  return { hits, titles };
+}
+
+/** Exactly one open task, or a teaching error (identical dupes hinted). */
+async function findOneTask(userId: string, q: string) {
+  const { hits, titles } = await findOpenTasks(userId, q);
+  if (hits.length === 1) return hits[0];
+  if (hits.length === 0) {
+    throw new Error(`No open task matches "${q}". His open tasks: ${titles}`);
+  }
+  const unique = new Set(hits.map((t) => t.title.toLowerCase()));
+  if (unique.size === 1) {
+    throw new Error(
+      `"${hits[0].title}" exists ${hits.length} times — use dedupe_tasks to clean duplicates, or delete_task with deleteAll:true`,
+    );
+  }
+  throw new Error(
+    `Several open tasks match "${q}": ${hits.map((t) => `"${t.title}"`).join(", ")} — be more specific`,
+  );
+}
+
 /** Run one tool for this user; always returns a short result line. */
 export async function executeCoachTool(
   userId: string,
@@ -270,6 +415,255 @@ export async function executeCoachTool(
         data: { activityStatus: status, statusUntil },
       });
       return `✓ Activity status set to ${status}${statusUntil ? ` until ${dayString(statusUntil)}` : ""}`;
+    }
+
+    case "update_task": {
+      const q = str(input.task);
+      if (!q) throw new Error("task is required");
+      const task = await findOneTask(userId, q);
+      const changes: string[] = [];
+      const data: Record<string, unknown> = {};
+      const title = str(input.title);
+      if (title) {
+        data.title = title.slice(0, 300);
+        changes.push(`renamed to "${title}"`);
+      }
+      if ([1, 2, 3].includes(input.priority as number)) {
+        data.priority = input.priority;
+        changes.push(`P${input.priority}`);
+      }
+      const dueDate = toDate(input.dueDate);
+      if (dueDate) {
+        data.dueDate = dueDate;
+        changes.push(`due ${dayString(dueDate)}`);
+      }
+      const est = num(input.estMinutes);
+      if (est) {
+        data.estMinutes = Math.round(est);
+        changes.push(`~${Math.round(est)}m`);
+      }
+      const notes = str(input.notes);
+      if (notes) {
+        data.notes = notes.slice(0, 2000);
+        changes.push("notes updated");
+      }
+      if (changes.length === 0) throw new Error("Nothing to change");
+      await prisma.task.update({ where: { id: task.id }, data });
+      return `✓ Task updated: "${task.title}" — ${changes.join(", ")}`;
+    }
+
+    case "complete_task": {
+      const q = str(input.task);
+      if (!q) throw new Error("task is required");
+      const task = await findOneTask(userId, q);
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          done: true,
+          doneAt: new Date(),
+          // A running focus timer banks its elapsed minutes, like the UI.
+          ...(task.timerStartedAt
+            ? {
+                actualMinutes:
+                  (task.actualMinutes ?? 0) + bankedMinutes(task.timerStartedAt),
+                timerStartedAt: null,
+              }
+            : {}),
+        },
+      });
+      let spawned = "";
+      if (task.repeat) {
+        const next = nextOccurrence(task.dueDate ?? new Date(), task.repeat);
+        await prisma.task.create({
+          data: {
+            userId,
+            title: task.title,
+            notes: task.notes,
+            dueDate: next,
+            priority: task.priority,
+            color: task.color,
+            estMinutes: task.estMinutes,
+            reminderLead: task.reminderLead,
+            repeat: task.repeat,
+            steps: {
+              create: task.steps.map((s) => ({
+                title: s.title,
+                estMinutes: s.estMinutes,
+                order: s.order,
+              })),
+            },
+          },
+        });
+        spawned = ` — next one scheduled for ${dayString(next)}`;
+      }
+      return `✓ Task completed: "${task.title}"${spawned}`;
+    }
+
+    case "delete_task": {
+      const q = str(input.task);
+      if (!q) throw new Error("task is required");
+      if (input.deleteAll === true) {
+        const { hits, titles } = await findOpenTasks(userId, q);
+        if (hits.length === 0) {
+          throw new Error(`No open task matches "${q}". His open tasks: ${titles}`);
+        }
+        await prisma.task.deleteMany({ where: { id: { in: hits.map((t) => t.id) } } });
+        return `✓ Deleted ${hits.length} task${hits.length === 1 ? "" : "s"} matching "${q}"`;
+      }
+      const task = await findOneTask(userId, q);
+      await prisma.task.delete({ where: { id: task.id } });
+      return `✓ Task deleted: "${task.title}"`;
+    }
+
+    case "dedupe_tasks": {
+      const tasks = await prisma.task.findMany({
+        where: { userId, done: false },
+        orderBy: { createdAt: "asc" },
+      });
+      const seen = new Map<string, number>();
+      const removeIds: string[] = [];
+      const removedTitles = new Map<string, number>();
+      for (const t of tasks) {
+        const key = t.title.trim().toLowerCase();
+        if (seen.has(key)) {
+          removeIds.push(t.id);
+          removedTitles.set(t.title, (removedTitles.get(t.title) ?? 0) + 1);
+        } else {
+          seen.set(key, 1);
+        }
+      }
+      if (removeIds.length === 0) return "No duplicate tasks found — the list is clean.";
+      await prisma.task.deleteMany({ where: { id: { in: removeIds } } });
+      const detail = [...removedTitles.entries()]
+        .map(([t, n]) => `"${t}"${n > 1 ? ` ×${n}` : ""}`)
+        .join(", ");
+      return `✓ Removed ${removeIds.length} duplicate task${removeIds.length === 1 ? "" : "s"} (kept the originals): ${detail}`;
+    }
+
+    case "delete_meal": {
+      const { start, end } = dayRange();
+      const meals = await prisma.meal.findMany({
+        where: { userId, eatenAt: { gte: start, lt: end } },
+        orderBy: { eatenAt: "desc" },
+      });
+      if (meals.length === 0) throw new Error("No meals logged today");
+      const q = str(input.description)?.toLowerCase();
+      const target = q
+        ? meals.find((m) => m.description.toLowerCase().includes(q))
+        : meals[0];
+      if (!target) {
+        throw new Error(
+          `No meal today matches "${q}". Today's meals: ${meals.map((m) => `"${m.description}"`).join(", ")}`,
+        );
+      }
+      await prisma.meal.delete({ where: { id: target.id } });
+      return `✓ Meal deleted: ${target.description} (${target.calories} kcal, ${target.protein}g protein)`;
+    }
+
+    case "tick_habit": {
+      const q = str(input.habit);
+      if (!q) throw new Error("habit is required");
+      const habits = await prisma.habit.findMany({
+        where: { userId, archived: false },
+      });
+      const needle = q.toLowerCase();
+      const hits = habits.filter((h) => h.name.toLowerCase().includes(needle));
+      if (hits.length !== 1) {
+        const titles = habits.map((h) => `"${h.name}"`).join(", ") || "none";
+        throw new Error(
+          hits.length === 0
+            ? `No habit matches "${q}". His habits: ${titles}`
+            : `Several habits match "${q}": ${hits.map((h) => `"${h.name}"`).join(", ")}`,
+        );
+      }
+      const day = dayString();
+      if (input.done === false) {
+        await prisma.habitLog.deleteMany({ where: { habitId: hits[0].id, day } });
+        return `✓ Habit unticked for today: ${hits[0].name}`;
+      }
+      await prisma.habitLog.upsert({
+        where: { habitId_day: { habitId: hits[0].id, day } },
+        create: { habitId: hits[0].id, day },
+        update: {},
+      });
+      return `✓ Habit ticked for today: ${hits[0].name}`;
+    }
+
+    case "update_targets": {
+      const ranges: Record<string, [number, number, string]> = {
+        calorieTarget: [800, 6000, "kcal"],
+        proteinTarget: [40, 400, "g"],
+        carbTarget: [20, 800, "g"],
+        fatTarget: [10, 300, "g"],
+        waterTargetMl: [500, 8000, "ml"],
+      };
+      const data: Record<string, number> = {};
+      const changes: string[] = [];
+      for (const [field, [min, max, unit]] of Object.entries(ranges)) {
+        const v = num(input[field]);
+        if (v == null) continue;
+        if (v < min || v > max) {
+          throw new Error(`${field} must be ${min}–${max} ${unit}`);
+        }
+        data[field] = Math.round(v);
+        changes.push(`${field.replace("Target", "").replace("Ml", "")} → ${Math.round(v)}${unit}`);
+      }
+      if (changes.length === 0) throw new Error("Pass at least one target to change");
+      await prisma.settings.update({ where: { userId }, data });
+      return `✓ Targets updated: ${changes.join(", ")}`;
+    }
+
+    case "sync_workouts": {
+      const r = await syncHevyForUser(userId);
+      if (!r.connected) throw new Error(r.message ?? "Hevy isn't connected");
+      if (r.message) throw new Error(r.message);
+      return `✓ Hevy synced: ${r.imported} new workout${r.imported === 1 ? "" : "s"} imported (${r.total} checked)`;
+    }
+
+    case "add_bill": {
+      const name = str(input.name);
+      const amountAed = num(input.amountAed);
+      if (!name || amountAed == null || amountAed <= 0) {
+        throw new Error("name and a positive amountAed are required");
+      }
+      const cadence = ["weekly", "monthly", "yearly", "once"].includes(
+        input.cadence as string,
+      )
+        ? (input.cadence as string)
+        : "monthly";
+      const nextDueDate =
+        toDate(input.dueDate) ?? new Date(Date.now() + 30 * 86_400_000);
+      await prisma.bill.create({
+        data: { userId, name: name.slice(0, 200), amountAed, cadence, nextDueDate },
+      });
+      return `✓ Bill added: ${name} — AED ${amountAed} ${cadence}, next due ${dayString(nextDueDate)}`;
+    }
+
+    case "mark_bill_paid": {
+      const q = str(input.bill);
+      if (!q) throw new Error("bill is required");
+      const bills = await prisma.bill.findMany({ where: { userId } });
+      const needle = q.toLowerCase();
+      const hits = bills.filter((b) => b.name.toLowerCase().includes(needle));
+      if (hits.length !== 1) {
+        const names = bills.map((b) => `"${b.name}"`).join(", ") || "none";
+        throw new Error(
+          hits.length === 0
+            ? `No bill matches "${q}". His bills: ${names}`
+            : `Several bills match "${q}": ${hits.map((b) => `"${b.name}"`).join(", ")}`,
+        );
+      }
+      const bill = hits[0];
+      if (bill.cadence === "once") {
+        await prisma.bill.delete({ where: { id: bill.id } });
+        return `✓ Bill paid and removed (one-time): ${bill.name}`;
+      }
+      const next = new Date(bill.nextDueDate.getTime());
+      if (bill.cadence === "weekly") next.setUTCDate(next.getUTCDate() + 7);
+      else if (bill.cadence === "yearly") next.setUTCFullYear(next.getUTCFullYear() + 1);
+      else next.setUTCMonth(next.getUTCMonth() + 1);
+      await prisma.bill.update({ where: { id: bill.id }, data: { nextDueDate: next } });
+      return `✓ Bill paid: ${bill.name} — next due ${dayString(next)}`;
     }
 
     case "add_goal": {

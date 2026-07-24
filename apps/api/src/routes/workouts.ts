@@ -7,8 +7,8 @@ import {
   type Workout,
 } from "@apex/shared";
 import { prisma } from "../db";
-import { fetchRecentWorkouts, hevyConfigured } from "../integrations/hevy";
 import { parseOr400 } from "../lib/http";
+import { syncHevyForUser } from "../lib/hevySync";
 import { computePrs, detectNewPrs, exerciseProgression } from "../lib/prs";
 
 type WorkoutWithSets = Prisma.WorkoutGetPayload<{ include: { sets: true } }>;
@@ -38,64 +38,8 @@ export default async function workoutRoutes(
   app.addHook("preHandler", app.authenticate);
 
   // Pull recent workouts from Hevy (read-only), deduped by their workout id.
-  app.post("/sync-hevy", async (request): Promise<SyncResult> => {
-    if (!hevyConfigured()) {
-      return {
-        connected: false,
-        imported: 0,
-        total: 0,
-        message: "Set HEVY_API_KEY (Hevy Pro) to auto-import workouts.",
-      };
-    }
-    let workouts;
-    try {
-      workouts = await fetchRecentWorkouts();
-    } catch (err) {
-      return {
-        connected: true,
-        imported: 0,
-        total: 0,
-        message: err instanceof Error ? err.message : "Hevy sync failed",
-      };
-    }
-
-    let imported = 0;
-    for (const w of workouts) {
-      if (!w.id) continue;
-      const existing = await prisma.workout.findFirst({
-        where: { userId: request.userId, externalId: w.id },
-      });
-      if (existing) continue;
-      const performedAt = w.start_time
-        ? new Date(w.start_time)
-        : w.created_at
-          ? new Date(w.created_at)
-          : undefined;
-      const created = await prisma.workout.create({
-        data: {
-          userId: request.userId,
-          title: w.title || "Hevy workout",
-          source: "hevy",
-          externalId: w.id,
-          performedAt,
-          sets: {
-            create: (w.exercises ?? []).flatMap((ex, exIdx) =>
-              (ex.sets ?? []).map((s, setIdx) => ({
-                exercise: ex.title || "Exercise",
-                order: exIdx * 100 + setIdx,
-                weightKg: s.weight_kg ?? null,
-                reps: s.reps ?? null,
-              })),
-            ),
-          },
-        },
-      });
-      imported++;
-      // New-PR push (deduped per exercise+workout); never blocks the sync.
-      detectNewPrs(request.userId, created.id).catch(() => {});
-    }
-    return { connected: true, imported, total: workouts.length };
-  });
+  app.post("/sync-hevy", async (request): Promise<SyncResult> =>
+    syncHevyForUser(request.userId));
 
   // All-time best set per exercise, ranked by estimated 1RM.
   app.get("/prs", async (request) => {

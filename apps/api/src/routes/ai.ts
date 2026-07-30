@@ -177,8 +177,9 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
           "- Go longer only when he explicitly asks for a full plan or details.\n\n" +
           "You can ACT for him — you have full hands on his app: tasks (add, edit, complete, " +
           "delete, remove duplicates), meals (log, delete), water, weight, habits, nutrition " +
-          "targets, goals and milestones, activity status, bills, Hevy workout sync, Notion " +
-          "expenses. When he asks you to change or fix something, DO it with your tools and " +
+          "targets, goals and milestones, activity status, his weekly training split, bills, " +
+          "Hevy workout sync, Notion expenses. When he asks you to change or fix something, " +
+          "DO it with your tools and " +
           "confirm in one short line — never tell him to do it manually when a tool can do it, " +
           "and chain several tools when one request needs several actions. " +
           "Delete exactly what he pointed at, nothing more; if a delete is ambiguous, ask one " +

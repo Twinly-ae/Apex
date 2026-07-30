@@ -4,6 +4,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "../db";
 import { createExpense, notionConfigured } from "../integrations/notion";
+import { ensureTrainingPlan } from "../routes/training-plan";
 import { syncHevyForUser } from "./hevySync";
 import { bankedMinutes, nextOccurrence } from "./tasks";
 import { dayRange, dayString } from "./time";
@@ -159,6 +160,42 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
     name: "sync_workouts",
     description: "Import his latest workouts from Hevy right now.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "set_training_split",
+    description:
+      "Change his weekly training split — set what he trains on specific weekdays (e.g. thursday → Lower, friday → Rest). Days not mentioned keep their current value.",
+    input_schema: {
+      type: "object",
+      properties: {
+        changes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              day: {
+                type: "string",
+                enum: [
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday",
+                  "saturday",
+                  "sunday",
+                ],
+              },
+              workout: {
+                type: "string",
+                description: "Push, Pull, Legs, Upper, Lower, Rest, or a custom name",
+              },
+            },
+            required: ["day", "workout"],
+          },
+        },
+      },
+      required: ["changes"],
+    },
   },
   {
     name: "add_bill",
@@ -618,6 +655,40 @@ export async function executeCoachTool(
       if (!r.connected) throw new Error(r.message ?? "Hevy isn't connected");
       if (r.message) throw new Error(r.message);
       return `✓ Hevy synced: ${r.imported} new workout${r.imported === 1 ? "" : "s"} imported (${r.total} checked)`;
+    }
+
+    case "set_training_split": {
+      const changes = Array.isArray(input.changes) ? input.changes : [];
+      if (changes.length === 0) throw new Error("changes is required");
+      const DAY_INDEX: Record<string, number> = {
+        monday: 0,
+        tuesday: 1,
+        wednesday: 2,
+        thursday: 3,
+        friday: 4,
+        saturday: 5,
+        sunday: 6,
+      };
+      const plan = await ensureTrainingPlan(userId);
+      const days = [...plan.days];
+      const applied: string[] = [];
+      for (const raw of changes) {
+        const c = (raw ?? {}) as Record<string, unknown>;
+        const day = str(c.day)?.toLowerCase();
+        const workout = str(c.workout);
+        if (!day || !(day in DAY_INDEX) || !workout) {
+          throw new Error("each change needs day (monday–sunday) and workout");
+        }
+        const w = workout.slice(0, 20);
+        const norm = w.charAt(0).toUpperCase() + w.slice(1);
+        days[DAY_INDEX[day]] = norm;
+        applied.push(`${day.charAt(0).toUpperCase()}${day.slice(1, 3)} → ${norm}`);
+      }
+      await prisma.trainingPlan.update({ where: { userId }, data: { days } });
+      const week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        .map((d, i) => `${d} ${days[i]}`)
+        .join(" · ");
+      return `✓ Split updated (${applied.join(", ")}). Week now: ${week}`;
     }
 
     case "add_bill": {

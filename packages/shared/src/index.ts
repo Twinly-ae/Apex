@@ -823,6 +823,11 @@ export const memoryInputSchema = z.object({
 });
 export type MemoryInput = z.infer<typeof memoryInputSchema>;
 
+/** Result of distilling a chat thread into long-term memory. */
+export interface MemorizeResult {
+  saved: string[];
+}
+
 /** A cached, AI-generated text artifact (briefing / day plan / weekly review). */
 export interface AiText {
   configured: boolean;

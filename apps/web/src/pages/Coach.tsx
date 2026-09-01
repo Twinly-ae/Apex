@@ -1,5 +1,6 @@
 import {
   ArrowUp,
+  BookmarkPlus,
   Brain,
   Dumbbell,
   History,
@@ -26,6 +27,7 @@ import {
   useDeleteConversation,
   useDeleteMemory,
   useMemories,
+  useMemorizeConversation,
   useNewConversation,
   useSendChat,
   useSettings,
@@ -72,17 +74,42 @@ function CoachAvatar({ size = "h-8 w-8" }: { size?: string }) {
 }
 
 /** Editor for the agent's long-term memory + standing instructions. */
-function MemorySheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+function MemorySheet({
+  open,
+  onClose,
+  conversationId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  conversationId: string | null;
+}) {
   const { data: memories } = useMemories();
   const addMemory = useAddMemory();
   const delMemory = useDeleteMemory();
+  const memorize = useMemorizeConversation();
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
 
   const [draft, setDraft] = useState("");
   const [instructions, setInstructions] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [memorized, setMemorized] = useState<string | null>(null);
   const value = instructions ?? settings?.aiInstructions ?? "";
+
+  async function memorizeChat() {
+    if (!conversationId || memorize.isPending) return;
+    setMemorized(null);
+    try {
+      const r = await memorize.mutateAsync(conversationId);
+      setMemorized(
+        r.saved.length === 0
+          ? "Nothing new worth keeping — memory already covers this chat."
+          : `Saved ${r.saved.length} fact${r.saved.length === 1 ? "" : "s"} from this chat ✓`,
+      );
+    } catch (err) {
+      setMemorized(err instanceof Error ? err.message : "Couldn't save this chat.");
+    }
+  }
 
   async function addDraft() {
     const content = draft.trim();
@@ -138,6 +165,19 @@ function MemorySheet({ open, onClose }: { open: boolean; onClose: () => void }) 
             Facts Apex keeps across every conversation. It saves things you tell
             it to remember — or add your own here.
           </p>
+          <button
+            onClick={() => void memorizeChat()}
+            disabled={!conversationId || memorize.isPending}
+            className="pressable mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-semibold text-accent disabled:opacity-50"
+          >
+            <BookmarkPlus className="h-4 w-4" strokeWidth={2} />
+            {memorize.isPending
+              ? "Reading the chat…"
+              : "Save this chat to memory"}
+          </button>
+          {memorized && (
+            <p className="mb-2 text-xs leading-relaxed text-muted">{memorized}</p>
+          )}
           <div className="flex items-center gap-1.5">
             <input
               value={draft}
@@ -469,7 +509,11 @@ export function Coach() {
       </Sheet>
 
       {/* Memory & instructions */}
-      <MemorySheet open={memoryOpen} onClose={() => setMemoryOpen(false)} />
+      <MemorySheet
+        open={memoryOpen}
+        onClose={() => setMemoryOpen(false)}
+        conversationId={activeId ?? data?.conversationId ?? null}
+      />
     </div>
   );
 }

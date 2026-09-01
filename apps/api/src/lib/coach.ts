@@ -7,10 +7,15 @@ import { computeHealth } from "./health";
 import { dayString, weekStartString } from "./time";
 
 const PERSONA =
-  "You are Apex, the personal AI agent inside a 19-year-old UAEU engineering student's " +
-  "private dashboard. He's in Abu Dhabi, runs an e-commerce gift brand (Twinly), " +
-  "trains 5x/week (Push/Pull/Legs/Upper/Lower) and is on a fat-loss + muscle-gain " +
-  "recomp (protein first, ~2200 kcal). Time is his scarcest resource.\n\n" +
+  "You are Apex — HIS personal agent, not a generic assistant. You exist to run the " +
+  "day-to-day of one person's life: his tasks, training, food, money, businesses, " +
+  "studies, notes and whatever else he throws at you. You know him, you keep his " +
+  "context between chats, and you handle things for him rather than handing back " +
+  "advice. Think of yourself as the one person on his team who sees everything.\n\n" +
+  "Who he is: 19, engineering at UAEU, based in Abu Dhabi. Runs an e-commerce gift " +
+  "brand (Twinly). Trains 5x/week (Push/Pull/Legs/Upper/Lower), on a fat-loss + " +
+  "muscle-gain recomp (protein first, ~2200 kcal). Time is his scarcest resource, so " +
+  "anything you can take off his plate, take.\n\n" +
   "Tone — talk like a mate who happens to know his numbers, not a manager:\n" +
   "- Match his energy and register. If he writes short, keep it short; if he's " +
   "casual or joking, sound the same way. Mirror his words for things (he says " +
@@ -91,7 +96,7 @@ export async function memorizeConversation(
         content: `Chat transcript:\n${transcript}\n\nExtract the facts to remember (max 6).`,
       },
     ],
-    maxTokens: 700,
+    maxTokens: 3000,
   });
 
   const seen = new Set(existing.map((m) => m.content.trim().toLowerCase()));
@@ -143,7 +148,7 @@ export async function generateBriefing(
   const text = await runText({
     system: `${await personaFor(userId)} Write a tight morning briefing in 2–4 sentences. Lead with what matters most today, mention protein/calories remaining, and end with one easy next step. Keep it relaxed — no hype, no pep talk. No lists, no preamble.`,
     messages: [{ role: "user", content: `My data:\n${ctx}\n\nWrite my morning briefing.` }],
-    maxTokens: 400,
+    maxTokens: 2000,
   });
   const generatedAt = await setArtifact(userId, "briefing", dayString(), text);
   return { text, generatedAt };
@@ -169,7 +174,7 @@ export async function generatePlan(
         }\n\nBuild my time-blocked plan for today.`,
       },
     ],
-    maxTokens: 900,
+    maxTokens: 6000,
     thinking: true,
   });
   const generatedAt = await setArtifact(userId, "plan", dayString(), text);
@@ -199,7 +204,7 @@ export async function generateHealthTips(
         content: `My data:\n${ctx}\n${extra}\n\nGive me 3 recovery/sleep/strain tips.`,
       },
     ],
-    maxTokens: 400,
+    maxTokens: 2500,
     thinking: true,
   });
   const generatedAt = await setArtifact(userId, "health-tips", dayString(), text);
@@ -287,7 +292,7 @@ export async function generatePaymentsReview(
         content: `Tracked bills:\n${billsLine}\n\nRecurring merchants from my bank statements (last 3 months):\n${recurringLines}\n\nReview my monthly payments.`,
       },
     ],
-    maxTokens: 900,
+    maxTokens: 6000,
     thinking: true,
   });
   const generatedAt = await setArtifact(userId, "payments-review", monthKey, text);
@@ -331,7 +336,7 @@ export async function generateReview(
   const text = await runText({
     system: `${await personaFor(userId)} ${REVIEW_FOCUS[type]} Write a short, structured weekly review (a few short paragraphs or tight bullets). Be honest and specific.`,
     messages: [{ role: "user", content: `My data:\n${ctx}\n${extra}\n\nWrite the review.` }],
-    maxTokens: 800,
+    maxTokens: 6000,
     thinking: true,
   });
   const generatedAt = await setArtifact(

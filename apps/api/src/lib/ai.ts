@@ -1,10 +1,17 @@
 // Anthropic (Claude) wrapper — the ONLY place that talks to the AI, always
-// server-side. Defaults to claude-opus-4-8; adaptive thinking for reasoning
-// tasks. Every feature checks aiConfigured() first and degrades gracefully.
+// server-side. Defaults to Opus 5 with adaptive thinking; effort is what we
+// turn down for cheap extraction rather than switching thinking off (a
+// thinking-disabled Opus 5 can write tool calls into visible text).
+// Every feature checks aiConfigured() first and degrades gracefully.
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "../env";
 
-const MODEL = env.ANTHROPIC_MODEL || "claude-opus-4-8";
+const MODEL = env.ANTHROPIC_MODEL || "claude-opus-5";
+
+/** How hard Claude works on a call — see runText/runAgent for the mapping. */
+type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+
+const THINKING = { type: "adaptive" } as const;
 
 let client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -21,7 +28,8 @@ export function aiConfigured(): boolean {
 export async function pingAi(): Promise<void> {
   await getClient().messages.create({
     model: MODEL,
-    max_tokens: 1,
+    max_tokens: 1024,
+    output_config: { effort: "low" },
     messages: [{ role: "user", content: "ping" }],
   });
 }
@@ -46,19 +54,25 @@ interface RunOpts {
   system?: string;
   messages: Anthropic.MessageParam[];
   maxTokens?: number;
-  /** Adaptive thinking for briefings/reviews/chat; off for fast extraction. */
+  /** true = a reasoning task (plans, reviews); false = cheap extraction. */
   thinking?: boolean;
+  /** Overrides the effort `thinking` would pick. */
+  effort?: Effort;
+}
+
+/** Reasoning tasks think hard; extraction stays cheap but never thinking-off. */
+function effortFor(opts: RunOpts): Effort {
+  if (opts.effort) return opts.effort;
+  return opts.thinking === false ? "low" : "high";
 }
 
 export async function runText(opts: RunOpts): Promise<string> {
-  // NOTE: adaptive thinking would suit reasoning tasks, but the installed SDK
-  // types only allow enabled/disabled; on Opus 4.8 omitting `thinking` runs
-  // without extended thinking, which is fine here. (`opts.thinking` reserved
-  // for when the SDK exposes adaptive.)
   const params = {
     model: MODEL,
-    max_tokens: opts.maxTokens ?? 1024,
+    max_tokens: opts.maxTokens ?? 4096,
     messages: opts.messages,
+    thinking: THINKING,
+    output_config: { effort: effortFor(opts) },
     ...(opts.system ? { system: opts.system } : {}),
   } satisfies Anthropic.MessageCreateParamsNonStreaming;
 
@@ -88,6 +102,7 @@ export async function runAgent(opts: {
   tools: Anthropic.Tool[];
   execute: (name: string, input: unknown) => Promise<string>;
   maxTokens?: number;
+  effort?: Effort;
 }): Promise<AgentResult> {
   const msgs: Anthropic.MessageParam[] = [...opts.messages];
   const actions: string[] = [];
@@ -105,10 +120,14 @@ export async function runAgent(opts: {
   for (let round = 0; round < 10; round++) {
     const res = await getClient().messages.create({
       model: MODEL,
-      max_tokens: opts.maxTokens ?? 1024,
+      max_tokens: opts.maxTokens ?? 8192,
       system: opts.system,
       messages: msgs,
       tools: opts.tools,
+      // Thinking blocks come back inside res.content and are pushed onto msgs
+      // unchanged below, which is what the API requires across tool rounds.
+      thinking: THINKING,
+      output_config: { effort: opts.effort ?? "high" },
     });
 
     if (res.stop_reason === "tool_use") {

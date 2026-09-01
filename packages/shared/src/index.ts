@@ -840,6 +840,11 @@ export const chatInputSchema = z.object({
 });
 export type ChatInput = z.infer<typeof chatInputSchema>;
 
+export const renameConversationSchema = z.object({
+  title: z.string().min(1).max(120),
+});
+export type RenameConversationInput = z.infer<typeof renameConversationSchema>;
+
 /** A chat thread with the coach. */
 export interface AiConversation {
   id: string;

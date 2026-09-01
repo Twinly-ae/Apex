@@ -49,7 +49,7 @@ const schema = z.object({
 
   // Phase 4 — AI coach + encryption for sensitive data at rest.
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().optional().default("claude-opus-4-8"),
+  ANTHROPIC_MODEL: z.string().optional().default("claude-opus-5"),
   // 32-byte key (hex or base64) for AES-256-GCM. Required only for bank
   // statements; generate: openssl rand -hex 32
   ENCRYPTION_KEY: z.string().optional(),

@@ -1,6 +1,6 @@
 import type { ReviewType } from "@apex/shared";
 import { prisma } from "../db";
-import { runText } from "./ai";
+import { runJSON, runText } from "./ai";
 import { buildUserContext } from "./context";
 import { decrypt } from "./crypto";
 import { computeHealth } from "./health";
@@ -39,6 +39,67 @@ export async function personaFor(userId: string): Promise<string> {
     parts.push(`The user's own standing instructions — always follow them:\n${custom}`);
   }
   return parts.join("\n\n");
+}
+
+/**
+ * Distill one chat thread into long-term memory: Claude extracts the few
+ * lasting facts worth keeping, skipping anything already remembered.
+ * Returns the facts it saved (possibly none).
+ */
+export async function memorizeConversation(
+  userId: string,
+  conversationId: string,
+): Promise<string[]> {
+  const msgs = await prisma.aiMessage.findMany({
+    where: { conversationId, userId },
+    orderBy: { createdAt: "asc" },
+    take: 200,
+  });
+  if (msgs.length === 0) throw new Error("This chat has no messages yet.");
+
+  const existing = await prisma.aiMemory.findMany({ where: { userId } });
+  const existingLines =
+    existing.map((m) => `- ${m.content}`).join("\n") || "(none)";
+  // Keep the tail of very long chats — the newest messages matter most.
+  const transcript = msgs
+    .map((m) => `${m.role === "assistant" ? "Apex" : "Him"}: ${m.content}`)
+    .join("\n")
+    .slice(-20_000);
+
+  const facts = await runJSON<unknown>({
+    system:
+      "You maintain the long-term memory of a personal AI agent. From the chat transcript, " +
+      "extract ONLY facts worth keeping for months: lasting preferences, decisions, plans, " +
+      "commitments, deadlines, and personal facts. Skip small talk, one-off numbers the app " +
+      "already tracks (today's meals, weights, water), anything speculative, and anything " +
+      "already in memory. Each fact is one short plain sentence. " +
+      'Respond with ONLY a JSON array of strings, e.g. ["fact one","fact two"]. ' +
+      "Return [] if nothing is worth keeping.\n\n" +
+      `Already in memory (do not repeat):\n${existingLines}`,
+    messages: [
+      {
+        role: "user",
+        content: `Chat transcript:\n${transcript}\n\nExtract the facts to remember (max 6).`,
+      },
+    ],
+    maxTokens: 700,
+  });
+
+  const seen = new Set(existing.map((m) => m.content.trim().toLowerCase()));
+  const saved: string[] = [];
+  const list = Array.isArray(facts) ? facts : [];
+  for (const raw of list.slice(0, 6)) {
+    if (typeof raw !== "string") continue;
+    const content = raw.trim().slice(0, 500);
+    if (!content || seen.has(content.toLowerCase())) continue;
+    if (seen.size + saved.length >= 100) break; // memory cap, same as the tool
+    await prisma.aiMemory.create({
+      data: { userId, content, source: "agent" },
+    });
+    seen.add(content.toLowerCase());
+    saved.push(content);
+  }
+  return saved;
 }
 
 export async function getArtifact(

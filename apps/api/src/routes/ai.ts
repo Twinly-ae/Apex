@@ -21,6 +21,7 @@ import {
   generatePlan,
   generateReview,
   getArtifact,
+  memorizeConversation,
   personaFor,
 } from "../lib/coach";
 import { buildUserContext } from "../lib/context";
@@ -228,6 +229,27 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       },
     });
     return { ...toChat(saved), conversationId: conversation.id };
+  });
+
+  // Distill one thread's lasting facts into long-term memory.
+  app.post("/chat/conversations/:id/memorize", async (request, reply) => {
+    if (!aiConfigured()) {
+      reply.code(503).send({ error: "AI is not configured" });
+      return;
+    }
+    const id = (request.params as { id: string }).id;
+    const conversation = await prisma.aiConversation.findFirst({
+      where: { id, userId: request.userId },
+    });
+    if (!conversation) {
+      reply.code(404).send({ error: "Not found" });
+      return;
+    }
+    const saved = await runAi(reply, () =>
+      memorizeConversation(request.userId, id),
+    );
+    if (saved === undefined) return;
+    return { saved };
   });
 
   /* ----- Long-term memory ----- */

@@ -669,6 +669,7 @@ import type {
   AiConversation,
   AiMemory,
   ChatResponse,
+  MemorizeResult,
   AiText,
   Business,
   BusinessPnl,
@@ -752,6 +753,17 @@ export function useDeleteMemory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.del<{ ok: true }>(`/api/ai/memories/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-memories"] }),
+  });
+}
+/** Distill a chat thread's lasting facts into long-term memory. */
+export function useMemorizeConversation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (conversationId: string) =>
+      api.post<MemorizeResult>(
+        `/api/ai/chat/conversations/${conversationId}/memorize`,
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-memories"] }),
   });
 }

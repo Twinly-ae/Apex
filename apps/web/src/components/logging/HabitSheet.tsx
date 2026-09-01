@@ -25,20 +25,25 @@ export function HabitSheet({
     <Sheet open={open} onClose={onClose} title="New habit">
       <div className="space-y-3">
         <div className="flex gap-2">
+          {/* Plain classes, not inputClass: its w-full would beat w-16 and
+              stretch this field across the row. */}
           <input
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
             placeholder="🏃"
-            className={`${inputClass} w-16 text-center`}
+            aria-label="Habit emoji"
+            className="w-16 shrink-0 rounded-xl border border-line bg-surface-2 px-2 py-3 text-center text-text placeholder:text-muted/70 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30"
             maxLength={2}
           />
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Read 20 min"
-            className={inputClass}
-          />
+          <div className="min-w-0 flex-1">
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Read 20 min"
+              className={inputClass}
+            />
+          </div>
         </div>
         <button
           onClick={submit}

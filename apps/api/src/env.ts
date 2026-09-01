@@ -43,6 +43,9 @@ const schema = z.object({
     .optional()
     .default("5de30779-8408-455c-8c4d-525ed00bc4a1"),
   HEALTH_INGEST_TOKEN: z.string().optional(),
+  // Read-only token for the home-screen widget (Scriptable). Disabled
+  // until set; generate: openssl rand -hex 24
+  WIDGET_TOKEN: z.string().optional(),
 
   // Phase 4 — AI coach + encryption for sensitive data at rest.
   ANTHROPIC_API_KEY: z.string().optional(),

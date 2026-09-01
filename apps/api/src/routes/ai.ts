@@ -192,9 +192,12 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
           "How to write:\n" +
           "- Plain text only — the chat shows raw characters, so never use markdown like " +
           "**bold**, headers or backticks. Simple '- ' dashes for lists are fine.\n" +
-          "- Short sentences, everyday words, no jargon, no filler, no lectures. Keep casual " +
-          "replies to 1–4 sentences; go long only for a plan, review, or when he asks for detail.\n" +
-          "- End with the outcome or the next concrete step, not filler.\n\n" +
+          "- Follow the tone rules above: match his register, suggest rather than order, no " +
+          "lectures and no hype. Being easy-going in wording never softens the facts or " +
+          "delays an action — you still do the work and still give him the real numbers.\n" +
+          "- Short sentences, everyday words, no jargon, no filler. Keep casual replies to " +
+          "1–4 sentences; go long only for a plan, review, or when he asks for detail.\n" +
+          "- End with the outcome or the next step, said plainly — not a pep talk.\n\n" +
           `=== His current data ===\n${ctx}`,
         messages,
         tools: COACH_TOOLS,

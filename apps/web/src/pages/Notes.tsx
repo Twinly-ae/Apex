@@ -84,22 +84,25 @@ function NoteEditor({
           className={`${inputClass} font-display text-lg font-bold`}
         />
         <div className="flex items-center gap-2">
-          <select
-            value={folderId ?? ""}
-            onChange={(e) => setFolderId(e.target.value || null)}
-            className={`${selectClass} flex-1`}
-          >
-            <option value="">No section</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.emoji ? `${f.emoji} ` : ""}
-                {f.name}
-              </option>
-            ))}
-          </select>
+          <div className="min-w-0 flex-1">
+            <select
+              value={folderId ?? ""}
+              onChange={(e) => setFolderId(e.target.value || null)}
+              aria-label="Section"
+              className={selectClass}
+            >
+              <option value="">No section</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.emoji ? `${f.emoji} ` : ""}
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={() => setPinned((p) => !p)}
-            aria-label={pinned ? "Unpin" : "Pin"}
+            aria-label={pinned ? "Unpin note" : "Pin note"}
             className={`pressable grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${
               pinned
                 ? "border-accent/40 bg-accent/10 text-accent"
@@ -170,27 +173,45 @@ function FolderEditor({
 
   return (
     <Sheet open onClose={onClose} title={folder ? "Edit section" : "New section"}>
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <input
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            maxLength={4}
-            placeholder="🙂"
-            aria-label="Section emoji"
-            className={`${inputClass} w-16 shrink-0 text-center`}
-          />
+      <div className="space-y-4">
+        <p className="text-xs leading-relaxed text-muted">
+          Sections group your notes — like Twinly, Gym or Uni. Notes you file
+          here show up under this name.
+        </p>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-text">
+            Section name
+          </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
-            placeholder="Section name (e.g. Twinly, Gym)"
+            placeholder="e.g. Twinly"
             autoFocus={!folder}
-            className={`${inputClass} flex-1`}
+            className={inputClass}
           />
-        </div>
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-text">
+            Icon <span className="font-normal text-muted">(optional)</span>
+          </span>
+          <input
+            value={emoji}
+            onChange={(e) => setEmoji(e.target.value)}
+            maxLength={4}
+            placeholder="📦"
+            inputMode="text"
+            className="w-20 rounded-xl border border-line bg-surface-2 px-4 py-3 text-center text-text placeholder:text-muted/50 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/30"
+          />
+          <span className="mt-1.5 block text-xs text-muted">
+            One emoji, shown next to the name.
+          </span>
+        </label>
+
         <button onClick={save} disabled={!name.trim() || busy} className={primaryButtonClass}>
-          {busy ? "Saving…" : folder ? "Save section" : "Add section"}
+          {busy ? "Saving…" : folder ? "Save changes" : "Create section"}
         </button>
         {folder && (
           <>
@@ -202,8 +223,9 @@ function FolderEditor({
               <Trash2 className="h-4 w-4" strokeWidth={2} />
               Delete section
             </button>
-            <p className="text-center text-xs text-muted">
-              Its notes are kept — they just lose the section.
+            <p className="text-center text-xs leading-relaxed text-muted">
+              Deleting only removes the section. Your notes stay — they move
+              back to All.
             </p>
           </>
         )}
@@ -351,9 +373,7 @@ export function Notes() {
           return (
             <button
               key={f.id}
-              onClick={() =>
-                active ? setFolderSheet({ folder: f }) : setFilter(f.id)
-              }
+              onClick={() => setFilter(f.id)}
               className={`pressable flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium ${
                 active
                   ? "border-accent/40 bg-accent/15 text-accent"
@@ -365,19 +385,47 @@ export function Notes() {
               <span className={active ? "text-accent/70" : "text-muted/60"}>
                 {countFor(f.id)}
               </span>
-              {active && <Pencil className="h-3 w-3" strokeWidth={2.2} />}
             </button>
           );
         })}
         <button
           onClick={() => setFolderSheet({ folder: null })}
-          aria-label="New section"
           className="pressable flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-line bg-transparent px-3.5 py-1.5 text-sm font-medium text-muted"
         >
           <FolderPlus className="h-4 w-4" strokeWidth={2} />
-          Section
+          New section
         </button>
       </div>
+
+      {/* What the chips do, and how to edit the selected section */}
+      {activeFolder ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-2.5">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-text">
+              {activeFolder.emoji ? `${activeFolder.emoji} ` : ""}
+              {activeFolder.name}
+            </div>
+            <div className="text-[11px] text-muted">
+              {countFor(activeFolder.id)} note
+              {countFor(activeFolder.id) === 1 ? "" : "s"} in this section
+            </div>
+          </div>
+          <button
+            onClick={() => setFolderSheet({ folder: activeFolder })}
+            className="pressable flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs font-semibold text-text"
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} />
+            Rename
+          </button>
+        </div>
+      ) : (
+        folders.length === 0 &&
+        notes.length > 0 && (
+          <p className="text-xs leading-relaxed text-muted">
+            Tip: make sections like Twinly or Gym to keep notes apart.
+          </p>
+        )
+      )}
 
       {/* Notes */}
       {visible.length === 0 ? (

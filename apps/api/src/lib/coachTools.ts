@@ -284,6 +284,36 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "remember",
+    description:
+      "Save one short fact to your long-term memory — it persists across all future conversations " +
+      "and AI features. Use when he says 'remember …' or shares a lasting preference, fact, or " +
+      "deadline worth keeping. Don't save trivia or anything already in his live data.",
+    input_schema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description: "The fact to remember, one short plain sentence",
+        },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "forget",
+    description:
+      "Delete a saved long-term memory that is wrong, obsolete, or that he asks you to forget. " +
+      "Match it by part of its text.",
+    input_schema: {
+      type: "object",
+      properties: {
+        memory: { type: "string", description: "Part of the memory's text" },
+      },
+      required: ["memory"],
+    },
+  },
+  {
     name: "add_notion_expense",
     description:
       "Add a business expense row to his Twinly Notion expenses database. Use when he asks to add/track an expense in Notion.",
@@ -843,6 +873,45 @@ export async function executeCoachTool(
       });
       const total = goal.milestones.length + 1;
       return `✓ Milestone added to "${goal.title}": "${title}" (now ${total} step${total === 1 ? "" : "s"})`;
+    }
+
+    case "remember": {
+      const content = str(input.content);
+      if (!content) throw new Error("content is required");
+      const trimmed = content.slice(0, 500);
+      const existing = await prisma.aiMemory.findMany({ where: { userId } });
+      if (existing.some((m) => m.content.trim().toLowerCase() === trimmed.trim().toLowerCase())) {
+        return `Already in memory: "${trimmed}"`;
+      }
+      if (existing.length >= 100) {
+        throw new Error("Memory is full (100 facts) — forget something first");
+      }
+      await prisma.aiMemory.create({
+        data: { userId, content: trimmed, source: "agent" },
+      });
+      return `✓ Saved to memory: "${trimmed}"`;
+    }
+
+    case "forget": {
+      const q = str(input.memory);
+      if (!q) throw new Error("memory is required");
+      const memories = await prisma.aiMemory.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+      });
+      const needle = q.toLowerCase();
+      const hits = memories.filter((m) => m.content.toLowerCase().includes(needle));
+      if (hits.length === 0) {
+        const all = memories.map((m) => `"${m.content}"`).slice(0, 30).join(", ") || "none";
+        throw new Error(`No memory matches "${q}". Saved memories: ${all}`);
+      }
+      if (hits.length > 1) {
+        throw new Error(
+          `Several memories match "${q}": ${hits.map((m) => `"${m.content}"`).join(", ")} — be more specific`,
+        );
+      }
+      await prisma.aiMemory.delete({ where: { id: hits[0].id } });
+      return `✓ Forgotten: "${hits[0].content}"`;
     }
 
     case "add_notion_expense": {

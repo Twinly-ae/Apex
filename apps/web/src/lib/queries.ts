@@ -667,6 +667,7 @@ export const useSyncHevy = () => {
 import type {
   AiChatMessage,
   AiConversation,
+  AiMemory,
   ChatResponse,
   AiText,
   Business,
@@ -707,10 +708,9 @@ export function useSendChat() {
         message: input.message,
         conversationId: input.conversationId ?? undefined,
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["ai-chat"] });
-      qc.invalidateQueries({ queryKey: ["ai-convos"] });
-    },
+    // The agent may have changed anything (tasks, meals, goals, memory…) —
+    // refetch everything so the rest of the app reflects its actions.
+    onSuccess: () => qc.invalidateQueries(),
   });
 }
 export function useNewConversation() {
@@ -730,6 +730,29 @@ export function useDeleteConversation() {
       qc.invalidateQueries({ queryKey: ["ai-chat"] });
       qc.invalidateQueries({ queryKey: ["ai-convos"] });
     },
+  });
+}
+
+/* ----- Long-term memory ----- */
+export function useMemories() {
+  return useQuery({
+    queryKey: ["ai-memories"],
+    queryFn: () => api.get<AiMemory[]>("/api/ai/memories"),
+  });
+}
+export function useAddMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      api.post<AiMemory>("/api/ai/memories", { content }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-memories"] }),
+  });
+}
+export function useDeleteMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<{ ok: true }>(`/api/ai/memories/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-memories"] }),
   });
 }
 

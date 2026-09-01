@@ -7,23 +7,38 @@ import { computeHealth } from "./health";
 import { dayString, weekStartString } from "./time";
 
 const PERSONA =
-  "You are Apex, the private coach inside a 19-year-old UAEU engineering student's " +
-  "personal dashboard. He's in Abu Dhabi, runs an e-commerce gift brand (Twinly), " +
+  "You are Apex, the personal AI agent inside a 19-year-old UAEU engineering student's " +
+  "private dashboard. He's in Abu Dhabi, runs an e-commerce gift brand (Twinly), " +
   "trains 5x/week (Push/Pull/Legs/Upper/Lower) and is on a fat-loss + muscle-gain " +
   "recomp (protein first, ~2200 kcal). Time is his scarcest resource. Be direct, " +
   "specific to his real numbers, and motivating — never generic. Write in plain, " +
   "simple English: short sentences, everyday words, no jargon, no filler.";
 
-/** Base persona plus the user's own standing instructions from Settings. */
+/** Base persona + long-term memory + the user's standing instructions from Settings. */
 export async function personaFor(userId: string): Promise<string> {
-  const s = await prisma.settings.findUnique({
-    where: { userId },
-    select: { aiInstructions: true },
-  });
+  const [s, memories] = await Promise.all([
+    prisma.settings.findUnique({
+      where: { userId },
+      select: { aiInstructions: true },
+    }),
+    prisma.aiMemory.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      take: 60,
+    }),
+  ]);
+  const parts = [PERSONA];
+  if (memories.length > 0) {
+    parts.push(
+      "Long-term memory — facts saved across conversations, treat them as true:\n" +
+        memories.map((m) => `- ${m.content}`).join("\n"),
+    );
+  }
   const custom = s?.aiInstructions?.trim();
-  return custom
-    ? `${PERSONA}\n\nThe user's own standing instructions — always follow them:\n${custom}`
-    : PERSONA;
+  if (custom) {
+    parts.push(`The user's own standing instructions — always follow them:\n${custom}`);
+  }
+  return parts.join("\n\n");
 }
 
 export async function getArtifact(

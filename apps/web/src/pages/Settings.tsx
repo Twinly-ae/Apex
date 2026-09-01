@@ -426,7 +426,7 @@ function AiCoachCard() {
   }
 
   return (
-    <Card title="AI coach">
+    <Card title="Apex AI">
       <label className="block">
         <span className="mb-1.5 block text-sm text-text">
           Custom instructions
@@ -447,7 +447,7 @@ function AiCoachCard() {
       </label>
       <p className="mt-2 text-xs leading-relaxed text-muted">
         Applied to everything the AI writes — chat, briefing, day plan, tips,
-        and reviews.
+        and reviews. Long-term memory lives in the chat's brain icon.
       </p>
       <button
         onClick={save}

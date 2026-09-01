@@ -22,6 +22,7 @@ import ingestRoutes from "./routes/ingest";
 import mealRoutes from "./routes/meals";
 import metricsRoutes from "./routes/metrics";
 import moneyRoutes from "./routes/money";
+import noteRoutes from "./routes/notes";
 import pushRoutes from "./routes/push";
 import settingsRoutes from "./routes/settings";
 import statusRoutes from "./routes/status";
@@ -128,6 +129,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(trendsRoutes, { prefix: "/api/trends" });
   await app.register(moneyRoutes, { prefix: "/api/money" });
   await app.register(billRoutes, { prefix: "/api/bills" });
+  await app.register(noteRoutes, { prefix: "/api/notes" });
   await app.register(metricsRoutes, { prefix: "/api/metrics" });
   await app.register(healthRoutes, { prefix: "/api/health" });
   await app.register(twinlyRoutes, { prefix: "/api/twinly" });

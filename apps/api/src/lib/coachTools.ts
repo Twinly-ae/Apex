@@ -284,6 +284,35 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "add_note",
+    description:
+      "Create a note in his Notes page. Use when he asks to write something down, save an idea, " +
+      "or make a note. Optionally file it under a section by name (e.g. Twinly, Gym) — the " +
+      "section is created if it doesn't exist.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Short note title" },
+        content: { type: "string", description: "The note's body (plain text)" },
+        section: { type: "string", description: "Section name to file it under (optional)" },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "append_note",
+    description:
+      "Add lines to the end of one of his existing notes. Match the note by part of its title.",
+    input_schema: {
+      type: "object",
+      properties: {
+        note: { type: "string", description: "Part of the note's title" },
+        content: { type: "string", description: "Text to append" },
+      },
+      required: ["note", "content"],
+    },
+  },
+  {
     name: "remember",
     description:
       "Save one short fact to your long-term memory — it persists across all future conversations " +
@@ -873,6 +902,66 @@ export async function executeCoachTool(
       });
       const total = goal.milestones.length + 1;
       return `✓ Milestone added to "${goal.title}": "${title}" (now ${total} step${total === 1 ? "" : "s"})`;
+    }
+
+    case "add_note": {
+      const title = str(input.title);
+      const content = str(input.content);
+      if (!title || !content) throw new Error("title and content are required");
+      let folderId: string | null = null;
+      const section = str(input.section);
+      if (section) {
+        const folders = await prisma.noteFolder.findMany({ where: { userId } });
+        const hit = folders.find(
+          (f) => f.name.toLowerCase() === section.toLowerCase(),
+        );
+        if (hit) {
+          folderId = hit.id;
+        } else {
+          const last = folders.reduce((m, f) => Math.max(m, f.sortOrder), 0);
+          const created = await prisma.noteFolder.create({
+            data: { userId, name: section.slice(0, 60), sortOrder: last + 1 },
+          });
+          folderId = created.id;
+        }
+      }
+      await prisma.note.create({
+        data: {
+          userId,
+          folderId,
+          title: title.slice(0, 200),
+          content: content.slice(0, 50_000),
+        },
+      });
+      return `✓ Note added: "${title}"${section ? ` (${section})` : ""}`;
+    }
+
+    case "append_note": {
+      const q = str(input.note);
+      const content = str(input.content);
+      if (!q || !content) throw new Error("note and content are required");
+      const notes = await prisma.note.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+      });
+      const needle = q.toLowerCase();
+      const hits = notes.filter((n) => n.title.toLowerCase().includes(needle));
+      if (hits.length === 0) {
+        const titles = notes.map((n) => `"${n.title}"`).slice(0, 20).join(", ") || "none";
+        throw new Error(`No note matches "${q}". His notes: ${titles}`);
+      }
+      if (hits.length > 1) {
+        throw new Error(
+          `Several notes match "${q}": ${hits.map((n) => `"${n.title}"`).join(", ")} — be more specific`,
+        );
+      }
+      const note = hits[0];
+      const merged = `${note.content.replace(/\s+$/, "")}\n${content}`.slice(0, 50_000);
+      await prisma.note.update({
+        where: { id: note.id },
+        data: { content: merged },
+      });
+      return `✓ Added to note "${note.title}"`;
     }
 
     case "remember": {

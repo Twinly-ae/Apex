@@ -16,6 +16,7 @@ export const PAGES: PageDef[] = [
   { id: "money", route: "/money", label: "Money" },
   { id: "businesses", route: "/businesses", label: "Business" },
   { id: "coach", route: "/coach", label: "Apex" },
+  { id: "notes", route: "/notes", label: "Notes" },
   { id: "meals", route: "/meals", label: "Food log" },
   { id: "day", route: "/day", label: "History" },
   { id: "settings", route: "/settings", label: "Settings" },

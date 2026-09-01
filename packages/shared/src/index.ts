@@ -780,6 +780,50 @@ export interface SyncResult {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Notes                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** A named section grouping notes (e.g. Twinly, Gym). */
+export interface NoteFolder {
+  id: string;
+  name: string;
+  emoji: string | null;
+  sortOrder: number;
+}
+
+export interface Note {
+  id: string;
+  folderId: string | null;
+  title: string;
+  content: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotesResponse {
+  folders: NoteFolder[];
+  notes: Note[];
+}
+
+export const createNoteSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().max(50_000).optional(),
+  folderId: z.string().nullable().optional(),
+  pinned: z.boolean().optional(),
+});
+export type CreateNoteInput = z.infer<typeof createNoteSchema>;
+
+export const updateNoteSchema = createNoteSchema.partial();
+export type UpdateNoteInput = z.infer<typeof updateNoteSchema>;
+
+export const noteFolderSchema = z.object({
+  name: z.string().min(1).max(60),
+  emoji: z.string().max(8).nullable().optional(),
+});
+export type NoteFolderInput = z.infer<typeof noteFolderSchema>;
+
+/* -------------------------------------------------------------------------- */
 /* Phase 4 — AI coach                                                         */
 /* -------------------------------------------------------------------------- */
 

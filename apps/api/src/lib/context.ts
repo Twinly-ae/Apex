@@ -24,6 +24,7 @@ export async function buildUserContext(userId: string): Promise<string> {
     recentWorkouts,
     prs,
     strengthTrend,
+    notes,
   ] = await Promise.all([
     prisma.settings.findUnique({ where: { userId } }),
     prisma.meal.findMany({ where: { userId, eatenAt: { gte: start, lt: end } } }),
@@ -64,6 +65,12 @@ export async function buildUserContext(userId: string): Promise<string> {
     }),
     computePrs(userId),
     progressionSummary(userId),
+    prisma.note.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      take: 15,
+      include: { folder: { select: { name: true } } },
+    }),
   ]);
 
   // Today's planned training split + whether it's been done.
@@ -206,6 +213,11 @@ export async function buildUserContext(userId: string): Promise<string> {
         .join("; ") || "none"
     }.`,
     `Net worth: AED ${netWorthTotal(accounts)} across ${accounts.length} accounts.`,
+    `His notes (titles only — use append_note to add to one): ${
+      notes
+        .map((n) => `"${n.title}"${n.folder ? ` [${n.folder.name}]` : ""}`)
+        .join("; ") || "none"
+    }.`,
   ];
   return lines.join("\n");
 }

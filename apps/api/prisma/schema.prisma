@@ -43,6 +43,8 @@ model User {
   transactions      Transaction[]
   pushSubscriptions PushSubscription[]
   notificationLogs  NotificationLog[]
+  noteFolders       NoteFolder[]
+  notes             Note[]
 }
 
 /// Editable recomp targets and preferences. One row per user.
@@ -334,6 +336,39 @@ model TwinlyExpense {
   updatedAt DateTime  @updatedAt
 
   @@index([userId, date])
+}
+
+// ---- Notes ------------------------------------------------------------------
+
+/// A named section grouping notes (e.g. Twinly, Gym).
+model NoteFolder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  emoji     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  notes     Note[]
+
+  @@index([userId])
+}
+
+/// A free-form note; deleting its folder keeps the note (folder becomes null).
+model Note {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId  String?
+  folder    NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  title     String
+  content   String      @default("")
+  pinned    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId, pinned, updatedAt])
+  @@index([folderId])
 }
 
 // ---- Phase 4: AI coach ------------------------------------------------------

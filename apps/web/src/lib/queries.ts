@@ -11,6 +11,7 @@ import type {
   CreateHabitInput,
   CreateMealInput,
   CreateMilestoneInput,
+  CreateNoteInput,
   CreateTaskInput,
   CreateWaterInput,
   CreateWorkoutInput,
@@ -20,6 +21,8 @@ import type {
   LoginInput,
   Meal,
   MealDay,
+  NoteFolderInput,
+  NotesResponse,
   PublicUser,
   SetStatusInput,
   Settings,
@@ -32,6 +35,7 @@ import type {
   TrendsResponse,
   UpdateGoalInput,
   UpdateMilestoneInput,
+  UpdateNoteInput,
   UpdateTaskInput,
   WaterLog,
   PrRecord,
@@ -305,6 +309,47 @@ export const useStartTaskTimer = () =>
 export const useStopTaskTimer = () =>
   useTaskStepMutation((id: string) =>
     api.post<Task>(`/api/tasks/${id}/timer/stop`),
+  );
+
+/* ----------------------------- Notes ----------------------------- */
+
+export function useNotes() {
+  return useQuery({
+    queryKey: ["notes"],
+    queryFn: () => api.get<NotesResponse>("/api/notes"),
+  });
+}
+
+function useNotesMutation<TArgs>(fn: (args: TArgs) => Promise<NotesResponse>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (data) => qc.setQueryData(["notes"], data),
+  });
+}
+
+export const useAddNote = () =>
+  useNotesMutation((input: CreateNoteInput) =>
+    api.post<NotesResponse>("/api/notes", input),
+  );
+export const useUpdateNote = () =>
+  useNotesMutation(({ id, input }: { id: string; input: UpdateNoteInput }) =>
+    api.patch<NotesResponse>(`/api/notes/${id}`, input),
+  );
+export const useDeleteNote = () =>
+  useNotesMutation((id: string) => api.del<NotesResponse>(`/api/notes/${id}`));
+export const useAddNoteFolder = () =>
+  useNotesMutation((input: NoteFolderInput) =>
+    api.post<NotesResponse>("/api/notes/folders", input),
+  );
+export const useUpdateNoteFolder = () =>
+  useNotesMutation(
+    ({ id, input }: { id: string; input: Partial<NoteFolderInput> }) =>
+      api.patch<NotesResponse>(`/api/notes/folders/${id}`, input),
+  );
+export const useDeleteNoteFolder = () =>
+  useNotesMutation((id: string) =>
+    api.del<NotesResponse>(`/api/notes/folders/${id}`),
   );
 
 /* ---------------------------- Settings ---------------------------- */

@@ -168,8 +168,8 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
           "You are an AGENT, not an advisor. You have full hands on his app: tasks (add, edit, " +
           "complete, delete, remove duplicates), meals (log, delete), water, weight, habits, " +
           "nutrition targets, goals and milestones, activity status, his weekly training split, " +
-          "bills, Hevy workout sync, Notion expenses, and your own long-term memory " +
-          "(remember/forget).\n\n" +
+          "bills, Hevy workout sync, Notion expenses, notes (create one, or append to an " +
+          "existing one), and your own long-term memory (remember/forget).\n\n" +
           "How to act:\n" +
           "- Bias to ACTION. When his message asks for anything your tools can do, DO it in this " +
           "same turn, then confirm in one short line per action. Never ask 'want me to?' and " +

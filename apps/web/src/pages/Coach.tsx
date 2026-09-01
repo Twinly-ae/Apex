@@ -2,13 +2,16 @@ import {
   ArrowUp,
   BookmarkPlus,
   Brain,
+  Check,
   Dumbbell,
   History,
   type LucideIcon,
   PiggyBank,
+  Pencil,
   Plus,
   Sparkles,
   SquarePen,
+  X,
   Sun,
   Target,
   Trash2,
@@ -20,9 +23,12 @@ import {
   useRef,
   useState,
 } from "react";
+import type { AiChatMessage } from "@apex/shared";
 import {
   useAddMemory,
   useAiChat,
+  useEditChatMessage,
+  useRenameConversation,
   useConversations,
   useDeleteConversation,
   useDeleteMemory,
@@ -232,6 +238,86 @@ function MemorySheet({
   );
 }
 
+/** Your own message, with an Edit button that re-asks from that point on. */
+function UserMessage({ message }: { message: AiChatMessage }) {
+  const edit = useEditChatMessage();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(message.content);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    const next = text.trim();
+    if (!next || edit.isPending) return;
+    if (next === message.content) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    try {
+      await edit.mutateAsync({ id: message.id, message: next });
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that.");
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex justify-end">
+        <div className="w-full max-w-[92%] rounded-2xl border border-accent/40 bg-surface p-2.5">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={3}
+            autoFocus
+            className="w-full resize-none bg-transparent text-sm leading-relaxed text-text outline-none"
+          />
+          <div className="mt-1.5 flex items-center justify-end gap-1.5">
+            <button
+              onClick={() => {
+                setText(message.content);
+                setEditing(false);
+                setError(null);
+              }}
+              className="pressable flex items-center gap-1 rounded-xl border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2.2} />
+              Cancel
+            </button>
+            <button
+              onClick={() => void save()}
+              disabled={!text.trim() || edit.isPending}
+              className="pressable flex items-center gap-1 rounded-xl bg-gradient-to-br from-accent to-accent-strong px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+              {edit.isPending ? "Asking…" : "Save & ask again"}
+            </button>
+          </div>
+          {error && <p className="mt-1.5 text-xs text-bad">{error}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-end justify-end gap-1.5">
+      <button
+        onClick={() => {
+          setText(message.content);
+          setEditing(true);
+        }}
+        aria-label="Edit this message"
+        className="pressable mb-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted/70"
+      >
+        <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+      </button>
+      <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gradient-to-br from-accent to-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white">
+        {message.content}
+      </div>
+    </div>
+  );
+}
+
 export function Coach() {
   // null = the most recent thread (server default)
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -246,6 +332,10 @@ export function Coach() {
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(
+    null,
+  );
+  const rename = useRenameConversation();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messages = data?.messages ?? [];
@@ -286,6 +376,14 @@ export function Coach() {
       e.preventDefault();
       void submit(text);
     }
+  }
+
+  async function saveRename() {
+    if (!renaming || rename.isPending) return;
+    const title = renaming.title.trim();
+    if (!title) return;
+    await rename.mutateAsync({ id: renaming.id, title });
+    setRenaming(null);
   }
 
   async function startNewChat() {
@@ -382,11 +480,7 @@ export function Coach() {
 
         {messages.map((m) =>
           m.role === "user" ? (
-            <div key={m.id} className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gradient-to-br from-accent to-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white">
-                {m.content}
-              </div>
-            </div>
+            <UserMessage key={m.id} message={m} />
           ) : (
             <div key={m.id} className="flex items-end gap-2">
               <CoachAvatar size="h-6 w-6" />
@@ -464,6 +558,7 @@ export function Coach() {
           ) : (
             (convos ?? []).map((c) => {
               const active = c.id === (activeId ?? data?.conversationId);
+              const renamingThis = renaming?.id === c.id;
               return (
                 <div
                   key={c.id}
@@ -473,34 +568,79 @@ export function Coach() {
                       : "border-line bg-surface-2"
                   }`}
                 >
-                  <button
-                    onClick={() => {
-                      setActiveId(c.id);
-                      setHistoryOpen(false);
-                    }}
-                    className="min-w-0 flex-1 py-2 text-left"
-                  >
-                    <div
-                      className={`truncate text-sm font-medium ${
-                        active ? "text-accent" : "text-text"
-                      }`}
-                    >
-                      {c.title}
-                    </div>
-                    <div className="text-[11px] text-muted">
-                      {when(c.updatedAt)}
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      delConvo.mutate(c.id);
-                      if (active) setActiveId(null);
-                    }}
-                    aria-label="Delete chat"
-                    className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted active:text-bad"
-                  >
-                    <Trash2 className="h-4 w-4" strokeWidth={2} />
-                  </button>
+                  {renamingThis ? (
+                    <>
+                      <input
+                        value={renaming.title}
+                        onChange={(e) =>
+                          setRenaming({ id: c.id, title: e.target.value })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void saveRename();
+                          }
+                          if (e.key === "Escape") setRenaming(null);
+                        }}
+                        maxLength={120}
+                        autoFocus
+                        className="min-w-0 flex-1 rounded-lg bg-transparent py-2 text-sm font-medium text-text outline-none"
+                      />
+                      <button
+                        onClick={() => void saveRename()}
+                        disabled={!renaming.title.trim() || rename.isPending}
+                        aria-label="Save name"
+                        className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-xl text-accent disabled:opacity-40"
+                      >
+                        <Check className="h-4 w-4" strokeWidth={2.4} />
+                      </button>
+                      <button
+                        onClick={() => setRenaming(null)}
+                        aria-label="Cancel rename"
+                        className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted"
+                      >
+                        <X className="h-4 w-4" strokeWidth={2.2} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setActiveId(c.id);
+                          setHistoryOpen(false);
+                        }}
+                        className="min-w-0 flex-1 py-2 text-left"
+                      >
+                        <div
+                          className={`truncate text-sm font-medium ${
+                            active ? "text-accent" : "text-text"
+                          }`}
+                        >
+                          {c.title}
+                        </div>
+                        <div className="text-[11px] text-muted">
+                          {when(c.updatedAt)}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setRenaming({ id: c.id, title: c.title })}
+                        aria-label="Rename chat"
+                        className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted"
+                      >
+                        <Pencil className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          delConvo.mutate(c.id);
+                          if (active) setActiveId(null);
+                        }}
+                        aria-label="Delete chat"
+                        className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted active:text-bad"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    </>
+                  )}
                 </div>
               );
             })

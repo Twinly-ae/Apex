@@ -4,6 +4,7 @@ import {
   type AiText,
   chatInputSchema,
   memoryInputSchema,
+  renameConversationSchema,
   reviewTypeSchema,
 } from "@apex/shared";
 import { prisma } from "../db";
@@ -49,6 +50,110 @@ async function runAi<T>(
     reply.code(502).send({ error: aiErrorMessage(err) });
     return undefined;
   }
+}
+
+const CHAT_RULES =
+  "You are an AGENT, not an advisor. You have full hands on his app: tasks (add, edit, " +
+  "complete, delete, remove duplicates), meals (log, delete), water, weight, habits, " +
+  "nutrition targets, goals and milestones, activity status, his weekly training split, " +
+  "bills, Hevy workout sync, Notion expenses, notes (create one, or append to an " +
+  "existing one), and your own long-term memory (remember/forget).\n\n" +
+  "How to act:\n" +
+  "- Bias to ACTION. When his message asks for anything your tools can do, DO it in this " +
+  "same turn, then confirm in one short line per action. Never ask 'want me to?' and " +
+  "never end a reply with an offer to do something you could just do. NEVER say you " +
+  "will do something ('I'll add them as tasks') without actually calling the tools " +
+  "before your reply ends — a promise without the tool calls is a failure.\n" +
+  "- When he asks for a plan, list, or schedule of things to do, write the FULL plan in " +
+  "your reply (never 'here's the plan:' with nothing under it) AND, if it's actionable, " +
+  "create the tasks with due dates in the same turn.\n" +
+  "- Chain as many tool calls as the request needs — 6 tasks means 6 add_task calls now.\n" +
+  "- Pick sensible defaults instead of asking. Only ask a question when truly blocked: " +
+  "a delete is ambiguous, or a required detail (like an amount) is missing and can't be " +
+  "defaulted. One question max, never a stack.\n" +
+  "- If his data below already answers his question, answer it — don't ask what you " +
+  "already know. Delete exactly what he pointed at, nothing more. If a tool errors, " +
+  "tell him honestly what failed.\n" +
+  "- Memory: when he tells you something lasting (a preference, fact, deadline, or " +
+  "'remember this'), save it with remember. Use forget when a memory is wrong or he " +
+  "asks. Don't save trivia or things already in his live data.\n\n" +
+  "How to write:\n" +
+  "- Plain text only — the chat shows raw characters, so never use markdown like " +
+  "**bold**, headers or backticks. Simple '- ' dashes for lists are fine.\n" +
+  "- Follow the tone rules above: match his register, suggest rather than order, no " +
+  "lectures and no hype. Being easy-going in wording never softens the facts or " +
+  "delays an action — you still do the work and still give him the real numbers.\n" +
+  "- Short sentences, everyday words, no jargon, no filler. Keep casual replies to " +
+  "1–4 sentences; go long only for a plan, review, or when he asks for detail.\n" +
+  "- End with the outcome or the next step, said plainly — not a pep talk.\n\n";
+
+/** Trim a user message into a thread title. */
+function titleFrom(text: string): string {
+  return text.length > 42 ? `${text.slice(0, 42)}…` : text;
+}
+
+/**
+ * Run one assistant turn on a thread: read the recent history, let the agent
+ * act, then save and return its reply. Shared by sending a new message and by
+ * editing an earlier one (which replays the thread from the edit onwards).
+ */
+async function runChatTurn(
+  userId: string,
+  conversationId: string,
+  reply: FastifyReply,
+): Promise<(AiChatMessage & { conversationId: string }) | undefined> {
+  const history = await prisma.aiMessage.findMany({
+    where: { conversationId },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+  const ordered = history.reverse();
+  // The API requires the first message to be from the user; a window that
+  // starts mid-exchange can otherwise open on an assistant turn.
+  while (ordered.length > 0 && ordered[0].role === "assistant") ordered.shift();
+  const messages: AiMessageParam[] = ordered.map((m) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: m.content,
+  }));
+
+  const result = await runAi(reply, async () => {
+    const [ctx, persona] = await Promise.all([
+      buildUserContext(userId),
+      personaFor(userId),
+    ]);
+    return runAgent({
+      system: `${persona}\n\n${CHAT_RULES}\n\n=== His current data ===\n${ctx}`,
+      messages,
+      tools: COACH_TOOLS,
+      execute: (name, input) => executeCoachTool(userId, name, input),
+      maxTokens: 8192,
+    });
+  });
+  if (result === undefined) return undefined;
+  const answer = result.text || result.actions.join("\n") || "Done.";
+
+  const saved = await prisma.aiMessage.create({
+    data: { userId, conversationId, role: "assistant", content: answer },
+  });
+
+  // Title new threads from their first message; bump recency either way.
+  const conversation = await prisma.aiConversation.findUnique({
+    where: { id: conversationId },
+  });
+  let title: string | undefined;
+  if (conversation?.title === "New chat") {
+    const first = await prisma.aiMessage.findFirst({
+      where: { conversationId, role: "user" },
+      orderBy: { createdAt: "asc" },
+    });
+    if (first) title = titleFrom(first.content);
+  }
+  await prisma.aiConversation.update({
+    where: { id: conversationId },
+    data: { updatedAt: new Date(), ...(title ? { title } : {}) },
+  });
+
+  return { ...toChat(saved), conversationId };
 }
 
 export default async function aiRoutes(app: FastifyInstance): Promise<void> {
@@ -147,91 +252,56 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       },
     });
 
-    const history = await prisma.aiMessage.findMany({
-      where: { conversationId: conversation.id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
-    const messages: AiMessageParam[] = history.reverse().map((m) => ({
-      role: m.role === "assistant" ? "assistant" : "user",
-      content: m.content,
-    }));
+    return runChatTurn(request.userId, conversation.id, reply);
+  });
 
-    const result = await runAi(reply, async () => {
-      const [ctx, persona] = await Promise.all([
-        buildUserContext(request.userId),
-        personaFor(request.userId),
-      ]);
-      return runAgent({
-        system:
-          `${persona}\n\n` +
-          "You are an AGENT, not an advisor. You have full hands on his app: tasks (add, edit, " +
-          "complete, delete, remove duplicates), meals (log, delete), water, weight, habits, " +
-          "nutrition targets, goals and milestones, activity status, his weekly training split, " +
-          "bills, Hevy workout sync, Notion expenses, notes (create one, or append to an " +
-          "existing one), and your own long-term memory (remember/forget).\n\n" +
-          "How to act:\n" +
-          "- Bias to ACTION. When his message asks for anything your tools can do, DO it in this " +
-          "same turn, then confirm in one short line per action. Never ask 'want me to?' and " +
-          "never end a reply with an offer to do something you could just do. NEVER say you " +
-          "will do something ('I'll add them as tasks') without actually calling the tools " +
-          "before your reply ends — a promise without the tool calls is a failure.\n" +
-          "- When he asks for a plan, list, or schedule of things to do, write the FULL plan in " +
-          "your reply (never 'here's the plan:' with nothing under it) AND, if it's actionable, " +
-          "create the tasks with due dates in the same turn.\n" +
-          "- Chain as many tool calls as the request needs — 6 tasks means 6 add_task calls now.\n" +
-          "- Pick sensible defaults instead of asking. Only ask a question when truly blocked: " +
-          "a delete is ambiguous, or a required detail (like an amount) is missing and can't be " +
-          "defaulted. One question max, never a stack.\n" +
-          "- If his data below already answers his question, answer it — don't ask what you " +
-          "already know. Delete exactly what he pointed at, nothing more. If a tool errors, " +
-          "tell him honestly what failed.\n" +
-          "- Memory: when he tells you something lasting (a preference, fact, deadline, or " +
-          "'remember this'), save it with remember. Use forget when a memory is wrong or he " +
-          "asks. Don't save trivia or things already in his live data.\n\n" +
-          "How to write:\n" +
-          "- Plain text only — the chat shows raw characters, so never use markdown like " +
-          "**bold**, headers or backticks. Simple '- ' dashes for lists are fine.\n" +
-          "- Follow the tone rules above: match his register, suggest rather than order, no " +
-          "lectures and no hype. Being easy-going in wording never softens the facts or " +
-          "delays an action — you still do the work and still give him the real numbers.\n" +
-          "- Short sentences, everyday words, no jargon, no filler. Keep casual replies to " +
-          "1–4 sentences; go long only for a plan, review, or when he asks for detail.\n" +
-          "- End with the outcome or the next step, said plainly — not a pep talk.\n\n" +
-          `=== His current data ===\n${ctx}`,
-        messages,
-        tools: COACH_TOOLS,
-        execute: (name, input) => executeCoachTool(request.userId, name, input),
-        maxTokens: 2048,
-      });
+  // Rewrite one of his own messages and answer again from that point: every
+  // message after it is dropped, so the thread continues from the new wording.
+  app.patch("/chat/messages/:id", async (request, reply) => {
+    const body = parseOr400(chatInputSchema.pick({ message: true }), request.body, reply);
+    if (!body) return;
+    if (!aiConfigured()) {
+      reply.code(503).send({ error: "AI is not configured (set ANTHROPIC_API_KEY)" });
+      return;
+    }
+    const id = (request.params as { id: string }).id;
+    const message = await prisma.aiMessage.findFirst({
+      where: { id, userId: request.userId, role: "user" },
     });
-    if (result === undefined) return;
-    const answer = result.text || result.actions.join("\n") || "Done.";
+    if (!message?.conversationId) {
+      reply.code(404).send({ error: "No such message of yours to edit" });
+      return;
+    }
+    await prisma.$transaction([
+      prisma.aiMessage.update({
+        where: { id: message.id },
+        data: { content: body.message },
+      }),
+      prisma.aiMessage.deleteMany({
+        where: {
+          conversationId: message.conversationId,
+          createdAt: { gt: message.createdAt },
+        },
+      }),
+    ]);
+    return runChatTurn(request.userId, message.conversationId, reply);
+  });
 
-    const saved = await prisma.aiMessage.create({
-      data: {
-        userId: request.userId,
-        conversationId: conversation.id,
-        role: "assistant",
-        content: answer,
-      },
+  // Rename a thread.
+  app.patch("/chat/conversations/:id", async (request, reply) => {
+    const body = parseOr400(renameConversationSchema, request.body, reply);
+    if (!body) return;
+    const id = (request.params as { id: string }).id;
+    const result = await prisma.aiConversation.updateMany({
+      where: { id, userId: request.userId },
+      data: { title: body.title.trim() },
     });
-    // Title new threads from their first message; bump recency either way.
-    await prisma.aiConversation.update({
-      where: { id: conversation.id },
-      data: {
-        updatedAt: new Date(),
-        ...(conversation.title === "New chat"
-          ? {
-              title:
-                body.message.length > 42
-                  ? `${body.message.slice(0, 42)}…`
-                  : body.message,
-            }
-          : {}),
-      },
-    });
-    return { ...toChat(saved), conversationId: conversation.id };
+    if (result.count === 0) {
+      reply.code(404).send({ error: "Not found" });
+      return;
+    }
+    const c = await prisma.aiConversation.findUnique({ where: { id } });
+    return { id, title: c?.title ?? body.title, updatedAt: c?.updatedAt.toISOString() };
   });
 
   // Distill one thread's lasting facts into long-term memory.

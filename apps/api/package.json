@@ -18,7 +18,7 @@
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.69.0",
+    "@anthropic-ai/sdk": "^0.123.0",
     "@apex/shared": "*",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^10.0.2",

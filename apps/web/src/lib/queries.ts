@@ -759,6 +759,28 @@ export function useSendChat() {
     onSuccess: () => qc.invalidateQueries(),
   });
 }
+/** Rewrite one of your own messages; the thread continues from there. */
+export function useEditChatMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; message: string }) =>
+      api.patch<AiChatMessage & { conversationId: string }>(
+        `/api/ai/chat/messages/${input.id}`,
+        { message: input.message },
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+export function useRenameConversation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; title: string }) =>
+      api.patch<AiConversation>(`/api/ai/chat/conversations/${input.id}`, {
+        title: input.title,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-convos"] }),
+  });
+}
 export function useNewConversation() {
   const qc = useQueryClient();
   return useMutation({

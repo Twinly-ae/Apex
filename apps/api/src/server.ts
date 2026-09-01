@@ -33,6 +33,7 @@ import trainingPlanRoutes from "./routes/training-plan";
 import trendsRoutes from "./routes/trends";
 import twinlyRoutes from "./routes/twinly";
 import waterRoutes from "./routes/water";
+import widgetRoutes from "./routes/widget";
 import workoutRoutes from "./routes/workouts";
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -130,6 +131,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(moneyRoutes, { prefix: "/api/money" });
   await app.register(billRoutes, { prefix: "/api/bills" });
   await app.register(noteRoutes, { prefix: "/api/notes" });
+  // Token-authenticated (no session) — read-only widget snapshot.
+  await app.register(widgetRoutes, { prefix: "/api/widget" });
   await app.register(metricsRoutes, { prefix: "/api/metrics" });
   await app.register(healthRoutes, { prefix: "/api/health" });
   await app.register(twinlyRoutes, { prefix: "/api/twinly" });

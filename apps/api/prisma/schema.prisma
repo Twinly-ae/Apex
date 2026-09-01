@@ -36,6 +36,7 @@ model User {
   aiMessages        AiMessage[]
   aiConversations   AiConversation[]
   aiArtifacts       AiArtifact[]
+  aiMemories        AiMemory[]
   twinlySales       TwinlySale[]
   businesses        Business[]
   bankStatements    BankStatement[]
@@ -362,6 +363,19 @@ model AiMessage {
 
   @@index([userId, createdAt])
   @@index([conversationId, createdAt])
+}
+
+/// One short long-term memory line the AI keeps across every conversation
+/// (saved by the agent from chat, or added by the user in the Memory sheet).
+model AiMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  source    String   @default("user") // user | agent
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 /// Cache for generated briefings / day plans / weekly reviews.

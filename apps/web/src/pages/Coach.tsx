@@ -1,22 +1,35 @@
 import {
   ArrowUp,
+  Brain,
   Dumbbell,
   History,
   type LucideIcon,
   PiggyBank,
+  Plus,
   Sparkles,
   SquarePen,
   Sun,
   Target,
   Trash2,
 } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  useAddMemory,
   useAiChat,
   useConversations,
   useDeleteConversation,
+  useDeleteMemory,
+  useMemories,
   useNewConversation,
   useSendChat,
+  useSettings,
+  useUpdateSettings,
 } from "../lib/queries";
 import { Sheet } from "../components/ui/Sheet";
 
@@ -58,6 +71,127 @@ function CoachAvatar({ size = "h-8 w-8" }: { size?: string }) {
   );
 }
 
+/** Editor for the agent's long-term memory + standing instructions. */
+function MemorySheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: memories } = useMemories();
+  const addMemory = useAddMemory();
+  const delMemory = useDeleteMemory();
+  const { data: settings } = useSettings();
+  const update = useUpdateSettings();
+
+  const [draft, setDraft] = useState("");
+  const [instructions, setInstructions] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const value = instructions ?? settings?.aiInstructions ?? "";
+
+  async function addDraft() {
+    const content = draft.trim();
+    if (!content || addMemory.isPending) return;
+    await addMemory.mutateAsync(content);
+    setDraft("");
+  }
+
+  async function saveInstructions() {
+    if (!settings) return;
+    await update.mutateAsync({
+      ...settings,
+      aiInstructions: value.trim() || null,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Memory & instructions">
+      <div className="space-y-6">
+        <section>
+          <h3 className="text-sm font-semibold text-text">Instructions</h3>
+          <p className="mb-2 mt-0.5 text-xs leading-relaxed text-muted">
+            Standing rules Apex follows in every chat, briefing, plan and
+            review.
+          </p>
+          <textarea
+            value={value}
+            onChange={(e) => {
+              setInstructions(e.target.value);
+              setSaved(false);
+            }}
+            rows={4}
+            maxLength={2000}
+            placeholder={
+              "e.g.\n· Reply in Arabic\n· Be blunt, no fluff\n· Prioritise Twinly over everything"
+            }
+            className="w-full resize-none rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-relaxed text-text placeholder:text-muted/60 outline-none transition-colors focus:border-accent"
+          />
+          <button
+            onClick={saveInstructions}
+            disabled={update.isPending || !settings}
+            className="mt-2 w-full rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-medium text-text active:opacity-80 disabled:opacity-50"
+          >
+            {update.isPending ? "Saving…" : saved ? "Saved ✓" : "Save instructions"}
+          </button>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold text-text">Memory</h3>
+          <p className="mb-2 mt-0.5 text-xs leading-relaxed text-muted">
+            Facts Apex keeps across every conversation. It saves things you tell
+            it to remember — or add your own here.
+          </p>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void addDraft();
+                }
+              }}
+              maxLength={500}
+              placeholder="Add a fact to remember…"
+              className="min-w-0 flex-1 rounded-xl border border-line bg-surface-2 px-4 py-2.5 text-sm text-text placeholder:text-muted/60 outline-none transition-colors focus:border-accent"
+            />
+            <button
+              onClick={() => void addDraft()}
+              disabled={!draft.trim() || addMemory.isPending}
+              aria-label="Add memory"
+              className="pressable grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/40 bg-accent/10 text-accent disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+            </button>
+          </div>
+          <div className="mt-2.5 space-y-1.5">
+            {(memories ?? []).length === 0 ? (
+              <p className="py-2 text-center text-sm text-muted">
+                Nothing remembered yet.
+              </p>
+            ) : (
+              (memories ?? []).map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 p-1.5 pl-3.5"
+                >
+                  <p className="min-w-0 flex-1 break-words py-1 text-sm leading-snug text-text">
+                    {m.content}
+                  </p>
+                  <button
+                    onClick={() => delMemory.mutate(m.id)}
+                    aria-label="Forget"
+                    className="pressable grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted active:text-bad"
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    </Sheet>
+  );
+}
+
 export function Coach() {
   // null = the most recent thread (server default)
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -71,12 +205,22 @@ export function Coach() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messages = data?.messages ?? [];
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, pending]);
+
+  // Grow the composer with its content (up to ~5 lines, then scroll inside).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [text]);
 
   async function submit(message: string) {
     const m = message.trim();
@@ -91,9 +235,16 @@ export function Coach() {
       });
       setActiveId(res.conversationId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Coach is unavailable.");
+      setError(err instanceof Error ? err.message : "Apex is unavailable.");
     } finally {
       setPending(null);
+    }
+  }
+
+  function onComposerKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submit(text);
     }
   }
 
@@ -106,7 +257,7 @@ export function Coach() {
 
   return (
     <div className="flex min-h-[calc(100vh-11rem)] flex-col">
-      {/* Sticky header — New chat & History always reachable */}
+      {/* Sticky header — Memory, History & New chat always reachable */}
       <header
         className="sticky z-20 -mx-4 mb-2 flex items-center justify-between gap-2 bg-bg/90 px-4 py-2.5 backdrop-blur-lg"
         style={{ top: "env(safe-area-inset-top, 0px)" }}
@@ -115,14 +266,21 @@ export function Coach() {
           <CoachAvatar />
           <div className="min-w-0">
             <h1 className="font-display text-lg font-bold leading-tight tracking-tight text-text">
-              Coach
+              Apex
             </h1>
             <p className="truncate text-[11px] text-muted">
-              Sees your day, training, food &amp; money
+              Your agent — sees &amp; acts on your whole day
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => setMemoryOpen(true)}
+            aria-label="Memory & instructions"
+            className="pressable grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-muted"
+          >
+            <Brain className="h-[18px] w-[18px]" strokeWidth={2} />
+          </button>
           <button
             onClick={() => setHistoryOpen(true)}
             aria-label="Chat history"
@@ -144,7 +302,7 @@ export function Coach() {
       {data && !data.configured && (
         <p className="mb-3 rounded-xl border border-line bg-surface p-3 text-sm text-muted">
           Set <code className="text-text">ANTHROPIC_API_KEY</code> on the API to
-          enable your AI coach.
+          enable Apex.
         </p>
       )}
 
@@ -156,11 +314,11 @@ export function Coach() {
               <CoachAvatar size="h-16 w-16" />
             </div>
             <h2 className="mt-4 font-display text-xl font-bold tracking-tight text-text">
-              What's on your mind?
+              What should I do for you?
             </h2>
             <p className="mx-auto mt-1 max-w-[260px] text-sm text-muted">
-              Your coach knows today's numbers — ask anything or start with one
-              of these.
+              Apex knows today's numbers and can act — add tasks, log food, plan
+              your day. Ask, or tell it what to do.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-2.5 text-left">
               {SUGGESTIONS.map(({ icon: Icon, label, prompt }) => (
@@ -185,14 +343,14 @@ export function Coach() {
         {messages.map((m) =>
           m.role === "user" ? (
             <div key={m.id} className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-gradient-to-br from-accent to-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white">
+              <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gradient-to-br from-accent to-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white">
                 {m.content}
               </div>
             </div>
           ) : (
             <div key={m.id} className="flex items-end gap-2">
               <CoachAvatar size="h-6 w-6" />
-              <div className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-line bg-surface px-4 py-2.5 text-sm leading-relaxed text-text">
+              <div className="max-w-[82%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md border border-line bg-surface px-4 py-2.5 text-sm leading-relaxed text-text">
                 {m.content}
               </div>
             </div>
@@ -202,7 +360,7 @@ export function Coach() {
         {pending && (
           <>
             <div className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-gradient-to-br from-accent to-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white opacity-80">
+              <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gradient-to-br from-accent to-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white opacity-80">
                 {pending}
               </div>
             </div>
@@ -220,7 +378,7 @@ export function Coach() {
         <div ref={endRef} />
       </div>
 
-      {/* Composer — floating pill above the nav */}
+      {/* Composer — floating pill that grows with the message */}
       <form
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
@@ -228,13 +386,16 @@ export function Coach() {
         }}
         className="sticky bottom-24 py-1"
       >
-        <div className="flex items-center gap-1.5 rounded-full border border-line bg-surface/95 p-1.5 pl-4 shadow-float backdrop-blur-xl">
-          <input
+        <div className="flex items-end gap-1.5 rounded-[26px] border border-line bg-surface/95 p-1.5 pl-4 shadow-float backdrop-blur-xl">
+          <textarea
+            ref={inputRef}
             value={text}
+            rows={1}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Ask your coach…"
+            onKeyDown={onComposerKeyDown}
+            placeholder="Ask Apex, or tell it what to do…"
             disabled={data ? !data.configured : false}
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-text placeholder:text-muted/70 outline-none disabled:opacity-50"
+            className="max-h-[132px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-[15px] leading-snug text-text placeholder:text-muted/70 outline-none disabled:opacity-50"
           />
           <button
             type="submit"
@@ -306,6 +467,9 @@ export function Coach() {
           )}
         </div>
       </Sheet>
+
+      {/* Memory & instructions */}
+      <MemorySheet open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </div>
   );
 }

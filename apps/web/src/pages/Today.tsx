@@ -135,7 +135,7 @@ export function Today() {
             className="pressable flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent"
           >
             <Sparkles className="h-4 w-4" strokeWidth={2} />
-            Coach
+            Apex
           </Link>
         </div>
       </header>

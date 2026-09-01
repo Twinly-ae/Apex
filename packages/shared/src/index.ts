@@ -810,6 +810,19 @@ export interface ChatResponse {
   messages: AiChatMessage[];
 }
 
+/** One long-term memory line the AI keeps across conversations. */
+export interface AiMemory {
+  id: string;
+  content: string;
+  source: string; // user | agent
+  createdAt: string;
+}
+
+export const memoryInputSchema = z.object({
+  content: z.string().min(1).max(500),
+});
+export type MemoryInput = z.infer<typeof memoryInputSchema>;
+
 /** A cached, AI-generated text artifact (briefing / day plan / weekly review). */
 export interface AiText {
   configured: boolean;

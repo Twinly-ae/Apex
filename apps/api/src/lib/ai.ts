@@ -79,6 +79,8 @@ export interface AgentResult {
 /**
  * Tool-use loop: lets Claude call app tools (log a meal, add a task, write a
  * Notion expense…) and keeps going until it produces a final text answer.
+ * Text written in earlier rounds (e.g. a plan announced before adding its
+ * tasks) is kept and joined into the final answer, not dropped.
  */
 export async function runAgent(opts: {
   system: string;
@@ -89,8 +91,18 @@ export async function runAgent(opts: {
 }): Promise<AgentResult> {
   const msgs: Anthropic.MessageParam[] = [...opts.messages];
   const actions: string[] = [];
+  const texts: string[] = [];
 
-  for (let round = 0; round < 6; round++) {
+  const collectText = (res: Anthropic.Message) => {
+    const t = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    if (t) texts.push(t);
+  };
+
+  for (let round = 0; round < 10; round++) {
     const res = await getClient().messages.create({
       model: MODEL,
       max_tokens: opts.maxTokens ?? 1024,
@@ -100,6 +112,7 @@ export async function runAgent(opts: {
     });
 
     if (res.stop_reason === "tool_use") {
+      collectText(res);
       const results: Anthropic.ToolResultBlockParam[] = [];
       for (const block of res.content) {
         if (block.type !== "tool_use") continue;
@@ -117,17 +130,11 @@ export async function runAgent(opts: {
       continue;
     }
 
-    const text = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
-    return { text, actions };
+    collectText(res);
+    return { text: texts.join("\n\n"), actions };
   }
-  return {
-    text: "I hit my action limit for one message — some steps may not have completed.",
-    actions,
-  };
+  texts.push("(I hit my action limit for one message — some steps may not have completed.)");
+  return { text: texts.join("\n\n"), actions };
 }
 
 /** Ask for JSON and parse it defensively (handles code fences / stray prose). */

@@ -3,6 +3,7 @@ import {
   type AiChatMessage,
   type AiText,
   chatInputSchema,
+  memoryInputSchema,
   reviewTypeSchema,
 } from "@apex/shared";
 import { prisma } from "../db";
@@ -162,34 +163,42 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       ]);
       return runAgent({
         system:
-          `${persona}\n\nCoach him using his real numbers below.\n\n` +
-          "How to reply:\n" +
-          "- Before answering, check: do you know enough for the answer to actually help him? " +
-          "If his request is vague or missing one detail that changes the answer (which goal, " +
-          "how much time, how he feels, what budget), ask ONE short question instead of guessing. " +
-          "Never stack questions — one at a time.\n" +
-          "- If his data below already answers it, just answer. Don't ask what you already know.\n" +
-          "- Keep it SHORT: 1–4 plain sentences, or up to 4 tight bullets. Simple everyday words, " +
-          "no jargon, no filler, no lectures.\n" +
+          `${persona}\n\n` +
+          "You are an AGENT, not an advisor. You have full hands on his app: tasks (add, edit, " +
+          "complete, delete, remove duplicates), meals (log, delete), water, weight, habits, " +
+          "nutrition targets, goals and milestones, activity status, his weekly training split, " +
+          "bills, Hevy workout sync, Notion expenses, and your own long-term memory " +
+          "(remember/forget).\n\n" +
+          "How to act:\n" +
+          "- Bias to ACTION. When his message asks for anything your tools can do, DO it in this " +
+          "same turn, then confirm in one short line per action. Never ask 'want me to?' and " +
+          "never end a reply with an offer to do something you could just do. NEVER say you " +
+          "will do something ('I'll add them as tasks') without actually calling the tools " +
+          "before your reply ends — a promise without the tool calls is a failure.\n" +
+          "- When he asks for a plan, list, or schedule of things to do, write the FULL plan in " +
+          "your reply (never 'here's the plan:' with nothing under it) AND, if it's actionable, " +
+          "create the tasks with due dates in the same turn.\n" +
+          "- Chain as many tool calls as the request needs — 6 tasks means 6 add_task calls now.\n" +
+          "- Pick sensible defaults instead of asking. Only ask a question when truly blocked: " +
+          "a delete is ambiguous, or a required detail (like an amount) is missing and can't be " +
+          "defaulted. One question max, never a stack.\n" +
+          "- If his data below already answers his question, answer it — don't ask what you " +
+          "already know. Delete exactly what he pointed at, nothing more. If a tool errors, " +
+          "tell him honestly what failed.\n" +
+          "- Memory: when he tells you something lasting (a preference, fact, deadline, or " +
+          "'remember this'), save it with remember. Use forget when a memory is wrong or he " +
+          "asks. Don't save trivia or things already in his live data.\n\n" +
+          "How to write:\n" +
           "- Plain text only — the chat shows raw characters, so never use markdown like " +
-          "**bold**, headers or backticks. Simple dashes for short lists are fine.\n" +
-          "- Every reply must end with something he can act on — a number, a step, or the one question.\n" +
-          "- Go longer only when he explicitly asks for a full plan or details.\n\n" +
-          "You can ACT for him — you have full hands on his app: tasks (add, edit, complete, " +
-          "delete, remove duplicates), meals (log, delete), water, weight, habits, nutrition " +
-          "targets, goals and milestones, activity status, his weekly training split, bills, " +
-          "Hevy workout sync, Notion expenses. When he asks you to change or fix something, " +
-          "DO it with your tools and " +
-          "confirm in one short line — never tell him to do it manually when a tool can do it, " +
-          "and chain several tools when one request needs several actions. " +
-          "Delete exactly what he pointed at, nothing more; if a delete is ambiguous, ask one " +
-          "short question first. If a required detail is missing (like an amount), ask for it " +
-          "instead of inventing it. If a tool errors, tell him honestly what failed.\n\n" +
+          "**bold**, headers or backticks. Simple '- ' dashes for lists are fine.\n" +
+          "- Short sentences, everyday words, no jargon, no filler, no lectures. Keep casual " +
+          "replies to 1–4 sentences; go long only for a plan, review, or when he asks for detail.\n" +
+          "- End with the outcome or the next concrete step, not filler.\n\n" +
           `=== His current data ===\n${ctx}`,
         messages,
         tools: COACH_TOOLS,
         execute: (name, input) => executeCoachTool(request.userId, name, input),
-        maxTokens: 1024,
+        maxTokens: 2048,
       });
     });
     if (result === undefined) return;
@@ -219,6 +228,48 @@ export default async function aiRoutes(app: FastifyInstance): Promise<void> {
       },
     });
     return { ...toChat(saved), conversationId: conversation.id };
+  });
+
+  /* ----- Long-term memory ----- */
+
+  app.get("/memories", async (request) => {
+    const rows = await prisma.aiMemory.findMany({
+      where: { userId: request.userId },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((m) => ({
+      id: m.id,
+      content: m.content,
+      source: m.source,
+      createdAt: m.createdAt.toISOString(),
+    }));
+  });
+
+  app.post("/memories", async (request, reply) => {
+    const body = parseOr400(memoryInputSchema, request.body, reply);
+    if (!body) return;
+    const m = await prisma.aiMemory.create({
+      data: { userId: request.userId, content: body.content.trim(), source: "user" },
+    });
+    reply.code(201);
+    return {
+      id: m.id,
+      content: m.content,
+      source: m.source,
+      createdAt: m.createdAt.toISOString(),
+    };
+  });
+
+  app.delete("/memories/:id", async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const result = await prisma.aiMemory.deleteMany({
+      where: { id, userId: request.userId },
+    });
+    if (result.count === 0) {
+      reply.code(404).send({ error: "Not found" });
+      return;
+    }
+    return { ok: true };
   });
 
   /* ----- Briefing ----- */

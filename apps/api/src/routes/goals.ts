@@ -31,7 +31,7 @@ export default async function goalRoutes(app: FastifyInstance): Promise<void> {
         targetValue: body.targetValue ?? null,
         currentValue: body.currentValue ?? null,
       },
-      include: { milestones: true },
+      include: { milestones: true, tasks: true },
     });
     reply.code(201);
     return serializeGoal(goal);
@@ -66,7 +66,7 @@ export default async function goalRoutes(app: FastifyInstance): Promise<void> {
         currentValue:
           body.currentValue === undefined ? undefined : body.currentValue,
       },
-      include: { milestones: true },
+      include: { milestones: true, tasks: true },
     });
     return serializeGoal(goal);
   });
@@ -108,7 +108,7 @@ export default async function goalRoutes(app: FastifyInstance): Promise<void> {
     });
     const full = await prisma.goal.findUniqueOrThrow({
       where: { id: goal.id },
-      include: { milestones: true },
+      include: { milestones: true, tasks: true },
     });
     reply.code(201);
     return serializeGoal(full);
@@ -145,7 +145,7 @@ export default async function goalRoutes(app: FastifyInstance): Promise<void> {
     });
     const full = await prisma.goal.findUniqueOrThrow({
       where: { id: milestone.goalId },
-      include: { milestones: true },
+      include: { milestones: true, tasks: true },
     });
     return serializeGoal(full);
   });
@@ -164,7 +164,7 @@ export default async function goalRoutes(app: FastifyInstance): Promise<void> {
     await prisma.goalMilestone.delete({ where: { id: milestone.id } });
     const full = await prisma.goal.findUniqueOrThrow({
       where: { id: milestone.goalId },
-      include: { milestones: true },
+      include: { milestones: true, tasks: true },
     });
     return serializeGoal(full);
   });

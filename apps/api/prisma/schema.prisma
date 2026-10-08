@@ -115,6 +115,8 @@ model Task {
   id         String     @id @default(cuid())
   userId     String
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId     String?
+  goal       Goal?      @relation(fields: [goalId], references: [id], onDelete: SetNull)
   title      String
   notes      String?
   dueDate    DateTime?
@@ -132,6 +134,7 @@ model Task {
   steps      TaskStep[]
 
   @@index([userId, done, dueDate])
+  @@index([goalId, done])
 }
 
 /// Ordered sub-steps of a task; the UI unlocks them one at a time.
@@ -168,6 +171,7 @@ model Goal {
   updatedAt    DateTime  @updatedAt
 
   milestones GoalMilestone[]
+  tasks      Task[]
 
   @@index([userId, status])
 }

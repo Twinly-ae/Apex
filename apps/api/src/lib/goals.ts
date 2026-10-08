@@ -36,6 +36,7 @@ export function computePace(
   goal: GoalRow,
   milestones: MilestoneRow[],
   now: Date = new Date(),
+  tasks: { done: boolean; repeat: string | null }[] = [],
 ): GoalPace {
   const created = goal.createdAt.getTime();
   const target = goal.targetDate.getTime();
@@ -61,6 +62,13 @@ export function computePace(
     );
   } else if (milestones.length > 0) {
     progressPct = (milestones.filter((m) => m.done).length / milestones.length) * 100;
+  } else {
+    // A finite list of planned tasks can measure execution when no numeric
+    // target or milestones exist. Repeating routines never count as "finished".
+    const planned = tasks.filter((t) => !t.repeat);
+    if (planned.length > 0) {
+      progressPct = (planned.filter((t) => t.done).length / planned.length) * 100;
+    }
   }
 
   let status: GoalPaceStatus;
@@ -79,20 +87,25 @@ export function computePace(
   };
 }
 
-type GoalWithMilestones = Prisma.GoalGetPayload<{
-  include: { milestones: true };
+type GoalWithTasks = Prisma.GoalGetPayload<{
+  include: { milestones: true; tasks: true };
 }>;
 
-export function serializeGoal(g: GoalWithMilestones, now: Date = new Date()): Goal {
+export function serializeGoal(g: GoalWithTasks, now: Date = new Date()): Goal {
   const milestones = [...g.milestones].sort(
     (a, b) => a.order - b.order || dueAsc(a.dueDate, b.dueDate),
   );
-  const pace = computePace(g, milestones, now);
+  const linkedTasks = [...g.tasks].sort(
+    (a, b) => Number(a.done) - Number(b.done) || a.priority - b.priority ||
+      dueAsc(a.dueDate, b.dueDate) || a.createdAt.getTime() - b.createdAt.getTime(),
+  );
+  const pace = computePace(g, milestones, now, linkedTasks);
   const nextIncomplete = milestones.find((m) => !m.done);
+  const nextTask = linkedTasks.find((t) => !t.done);
   pace.nextStep =
     pace.status === "done"
       ? null
-      : (nextIncomplete?.title ?? `Make progress on “${g.title}”`);
+      : (nextTask?.title ?? nextIncomplete?.title ?? `Make progress on “${g.title}”`);
 
   return {
     id: g.id,
@@ -115,6 +128,14 @@ export function serializeGoal(g: GoalWithMilestones, now: Date = new Date()): Go
       doneAt: m.doneAt ? m.doneAt.toISOString() : null,
       order: m.order,
     })),
+    linkedTasks: linkedTasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      dueDate: t.dueDate?.toISOString() ?? null,
+      priority: t.priority as 1 | 2 | 3,
+      done: t.done,
+      repeat: (t.repeat as "daily" | "weekdays" | "weekly" | null) ?? null,
+    })),
     pace,
   };
 }
@@ -124,7 +145,7 @@ export async function loadGoals(userId: string): Promise<Goal[]> {
   const now = new Date();
   const goals = await prisma.goal.findMany({
     where: { userId, status: { not: "archived" } },
-    include: { milestones: true },
+    include: { milestones: true, tasks: true },
     orderBy: [{ status: "asc" }, { targetDate: "asc" }],
   });
   return goals.map((g) => serializeGoal(g, now));

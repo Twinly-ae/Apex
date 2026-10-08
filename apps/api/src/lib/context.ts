@@ -137,6 +137,7 @@ export async function buildUserContext(userId: string): Promise<string> {
   // Open tasks with priority, estimate, due-date urgency, and any next sub-step
   // (everything the planner needs to time-block the day around real tasks).
   const today = dayString();
+  const goalTitles = new Map(goals.map((g) => [g.id, g.title]));
   let totalEstMin = 0;
   const tasksLine =
     openTasks
@@ -154,7 +155,8 @@ export async function buildUserContext(userId: string): Promise<string> {
           const d = dayString(t.dueDate);
           due = d < today ? " [OVERDUE]" : d === today ? " [due today]" : ` [due ${d}]`;
         }
-        return `[P${t.priority}]${est} ${t.title}${step}${due}`;
+        const goal = t.goalId ? goalTitles.get(t.goalId) : null;
+        return `[P${t.priority}]${est} ${t.title}${step}${due}${goal ? ` [goal: ${goal}]` : ""}`;
       })
       .join("; ") || "none";
   const workloadLine = totalEstMin
@@ -236,7 +238,7 @@ Open assignments/exams (earliest first): ${deadlines.slice(0, 15).map(({ course,
         .filter((g) => g.status === "active")
         .map(
           (g) =>
-            `"${g.title}" [${g.horizon === "year" ? "YEARLY" : g.category}] — target ${dayString(new Date(g.targetDate))}, ${g.pace.status}, ${g.pace.daysRemaining}d left, next step: ${g.pace.nextStep ?? "n/a"}`,
+            `"${g.title}" [${g.horizon === "year" ? "YEARLY" : g.category}] — target ${dayString(new Date(g.targetDate))}, ${g.pace.progressPct}% complete, ${g.pace.status}, ${g.pace.daysRemaining}d left, ${g.linkedTasks.filter((t) => !t.repeat && t.done).length}/${g.linkedTasks.filter((t) => !t.repeat).length} planned tasks done, next step: ${g.pace.nextStep ?? "n/a"}`,
         )
         .join("; ") || "none"
     }.`,

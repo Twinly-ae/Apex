@@ -5,6 +5,7 @@ import {
   useAddTask,
   useAddTaskStep,
   useDeleteTaskStep,
+  useGoals,
   useUpdateTask,
   useUpdateTaskStep,
 } from "../../lib/queries";
@@ -56,6 +57,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
   const addStep = useAddTaskStep();
   const updateStep = useUpdateTaskStep();
   const delStep = useDeleteTaskStep();
+  const { data: goals = [] } = useGoals();
   const editing = Boolean(task);
 
   const [title, setTitle] = useState("");
@@ -65,6 +67,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
   const [est, setEst] = useState("");
   const [reminderLead, setReminderLead] = useState<number | null>(null);
   const [repeat, setRepeat] = useState<TaskRepeat | null>(null);
+  const [goalId, setGoalId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [newStep, setNewStep] = useState("");
   const [newStepEst, setNewStepEst] = useState("");
@@ -79,6 +82,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
     setEst(task?.estMinutes ? String(task.estMinutes) : "");
     setReminderLead(task?.reminderLead ?? null);
     setRepeat(task?.repeat ?? null);
+    setGoalId(task?.goalId ?? null);
     setNotes(task?.notes ?? "");
     setNewStep("");
     setNewStepEst("");
@@ -107,6 +111,7 @@ export function TaskSheet({ open, onClose, task }: Props) {
       estMinutes: est ? Math.round(Number(est)) : null,
       reminderLead: due ? reminderLead : null,
       repeat,
+      goalId,
       notes: notes.trim() || null,
     };
     if (task) {
@@ -194,6 +199,23 @@ export function TaskSheet({ open, onClose, task }: Props) {
               <option key={r.label} value={r.value ?? ""}>
                 {r.label}
               </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">Goal (optional)</span>
+          <select
+            value={goalId ?? ""}
+            onChange={(e) => setGoalId(e.target.value || null)}
+            className={selectClass}
+          >
+            <option value="">No linked goal</option>
+            {goalId && !goals.some((g) => g.id === goalId) && (
+              <option value={goalId}>Previously linked goal</option>
+            )}
+            {goals.filter((g) => g.status === "active").map((g) => (
+              <option key={g.id} value={g.id}>{g.title}</option>
             ))}
           </select>
         </label>

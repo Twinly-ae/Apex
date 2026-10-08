@@ -243,6 +243,7 @@ export function useAddTask() {
     mutationFn: (input: CreateTaskInput) => api.post<Task>("/api/tasks", input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tasks });
+      qc.invalidateQueries({ queryKey: keys.goals });
       invalidateDaily();
     },
   });
@@ -256,6 +257,7 @@ export function useUpdateTask() {
       api.patch<Task>(`/api/tasks/${id}`, input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tasks });
+      qc.invalidateQueries({ queryKey: keys.goals });
       invalidateDaily();
     },
   });
@@ -268,6 +270,7 @@ export function useDeleteTask() {
     mutationFn: (id: string) => api.del<{ ok: true }>(`/api/tasks/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tasks });
+      qc.invalidateQueries({ queryKey: keys.goals });
       invalidateDaily();
     },
   });

@@ -11,6 +11,14 @@ import { parseOr400 } from "../lib/http";
 import { toTask } from "../lib/serializers";
 import { bankedMinutes, nextOccurrence } from "../lib/tasks";
 
+/** Keep task ↔ goal links inside the authenticated user's active goals. */
+async function canLinkGoal(userId: string, goalId: string): Promise<boolean> {
+  return Boolean(await prisma.goal.findFirst({
+    where: { id: goalId, userId, status: "active" },
+    select: { id: true },
+  }));
+}
+
 export default async function taskRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
 
@@ -33,9 +41,14 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
   app.post("/", async (request, reply) => {
     const body = parseOr400(createTaskSchema, request.body, reply);
     if (!body) return;
+    if (body.goalId && !await canLinkGoal(request.userId, body.goalId)) {
+      reply.code(400).send({ error: "Select an active goal you own." });
+      return;
+    }
     const task = await prisma.task.create({
       data: {
         userId: request.userId,
+        goalId: body.goalId ?? null,
         title: body.title,
         notes: body.notes ?? null,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
@@ -65,11 +78,17 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
       reply.code(404).send({ error: "Not found" });
       return;
     }
+    if (body.goalId && body.goalId !== existing.goalId &&
+        !await canLinkGoal(request.userId, body.goalId)) {
+      reply.code(400).send({ error: "Select an active goal you own." });
+      return;
+    }
 
     const task = await prisma.task.update({
       where: { id: existing.id },
       data: {
         title: body.title ?? undefined,
+        goalId: body.goalId === undefined ? undefined : body.goalId,
         notes: body.notes === undefined ? undefined : body.notes,
         dueDate:
           body.dueDate === undefined
@@ -104,6 +123,7 @@ export default async function taskRoutes(app: FastifyInstance): Promise<void> {
       await prisma.task.create({
         data: {
           userId: request.userId,
+          goalId: existing.goalId,
           title: existing.title,
           notes: existing.notes,
           dueDate: nextOccurrence(existing.dueDate ?? new Date(), existing.repeat),

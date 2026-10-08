@@ -212,6 +212,7 @@ export const createTaskSchema = z.object({
   estMinutes: z.number().int().min(0).max(10000).nullable().optional(),
   reminderLead: reminderLeadSchema.optional(),
   repeat: taskRepeatSchema.nullable().optional(),
+  goalId: z.string().min(1).nullable().optional(),
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
@@ -225,6 +226,7 @@ export const updateTaskSchema = z
     estMinutes: z.number().int().min(0).max(10000).nullable(),
     reminderLead: reminderLeadSchema,
     repeat: taskRepeatSchema.nullable(),
+    goalId: z.string().min(1).nullable(),
     done: z.boolean(),
   })
   .partial();
@@ -264,6 +266,7 @@ export interface Task {
   estMinutes: number | null;
   reminderLead: number | null;
   repeat: TaskRepeat | null;
+  goalId: string | null;
   /** Minutes logged with the focus timer. */
   actualMinutes: number | null;
   /** Set while the focus timer is running. */
@@ -481,6 +484,15 @@ export interface GoalPace {
   nextStep: string | null;
 }
 
+export interface GoalLinkedTask {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  priority: TaskPriority;
+  done: boolean;
+  repeat: TaskRepeat | null;
+}
+
 export interface Goal {
   id: string;
   title: string;
@@ -495,6 +507,7 @@ export interface Goal {
   targetValue: number | null;
   currentValue: number | null;
   milestones: GoalMilestone[];
+  linkedTasks: GoalLinkedTask[];
   pace: GoalPace;
 }
 
@@ -950,7 +963,7 @@ export interface AiText {
   generatedAt: string | null;
 }
 
-export const reviewTypeSchema = z.enum(["twinly", "fitness", "money"]);
+export const reviewTypeSchema = z.enum(["twinly", "fitness", "money", "goals"]);
 export type ReviewType = z.infer<typeof reviewTypeSchema>;
 
 /* ----- AI macro tracker ----- */

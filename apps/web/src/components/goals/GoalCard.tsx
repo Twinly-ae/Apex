@@ -3,9 +3,11 @@ import { useState } from "react";
 import type { Goal, GoalPaceStatus } from "@apex/shared";
 import {
   useAddMilestone,
+  useAddTask,
   useDeleteGoal,
   useDeleteMilestone,
   useUpdateGoal,
+  useUpdateTask,
   useUpdateMilestone,
 } from "../../lib/queries";
 
@@ -19,11 +21,14 @@ const STATUS: Record<GoalPaceStatus, { label: string; cls: string }> = {
 
 export function GoalCard({ goal }: { goal: Goal }) {
   const addMilestone = useAddMilestone();
+  const addTask = useAddTask();
+  const updateTask = useUpdateTask();
   const updateMilestone = useUpdateMilestone();
   const deleteMilestone = useDeleteMilestone();
   const updateGoal = useUpdateGoal();
   const deleteGoal = useDeleteGoal();
   const [newMilestone, setNewMilestone] = useState("");
+  const [newTask, setNewTask] = useState("");
   const [open, setOpen] = useState(false);
 
   const status = STATUS[goal.pace.status];
@@ -31,6 +36,9 @@ export function GoalCard({ goal }: { goal: Goal }) {
   const ms = goal.milestones;
   const msDone = ms.filter((m) => m.done).length;
   const msPct = ms.length ? Math.round((msDone / ms.length) * 100) : 0;
+  const plannedTasks = goal.linkedTasks.filter((t) => !t.repeat);
+  const tasksDone = plannedTasks.filter((t) => t.done).length;
+  const visibleTasks = goal.linkedTasks.filter((t) => !t.done || !t.repeat).slice(0, 8);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
@@ -42,6 +50,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
               {goal.horizon === "year" ? "yearly · " : ""}{goal.category} ·{" "}
               {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
               {ms.length > 0 && ` · ${msDone}/${ms.length} milestones (${msPct}%)`}
+              {plannedTasks.length > 0 && ` · ${tasksDone}/${plannedTasks.length} tasks`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -162,6 +171,61 @@ export function GoalCard({ goal }: { goal: Goal }) {
                 Add
               </button>
             </form>
+
+            <div className="mt-4 border-t border-line pt-3">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="font-medium text-text">Tasks for this goal</span>
+                <span className="text-muted">{tasksDone}/{plannedTasks.length} one-time tasks done</span>
+              </div>
+              {visibleTasks.length > 0 && (
+                <ul className="mb-2 space-y-2">
+                  {visibleTasks.map((t) => (
+                    <li key={t.id} className="flex items-center gap-2 text-sm">
+                      <button
+                        aria-label={t.done ? "Reopen goal task" : "Complete goal task"}
+                        disabled={updateTask.isPending}
+                        onClick={() => updateTask.mutate({ id: t.id, input: { done: !t.done } })}
+                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${t.done ? "border-good bg-good/20 text-good" : "border-line"}`}
+                      >
+                        {t.done && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </button>
+                      <span className={`min-w-0 flex-1 truncate ${t.done ? "text-muted line-through" : "text-text"}`}>{t.title}</span>
+                      {t.repeat && <span className="text-xs text-muted">recurring</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {goal.linkedTasks.length > visibleTasks.length && (
+                <p className="mb-2 text-xs text-muted">Showing {visibleTasks.length} linked tasks. Open Tasks to see the rest.</p>
+              )}
+              {goal.status === "active" && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!newTask.trim()) return;
+                    addTask.mutate({ title: newTask.trim(), priority: 2, goalId: goal.id }, {
+                      onSuccess: () => setNewTask(""),
+                    });
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    value={newTask}
+                    onChange={(e) => setNewTask(e.target.value)}
+                    placeholder="Next action for this goal…"
+                    className="min-w-0 flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newTask.trim() || addTask.isPending}
+                    className="rounded-lg bg-surface-2 px-3 text-sm text-accent disabled:opacity-50"
+                  >
+                    Add task
+                  </button>
+                </form>
+              )}
+              {addTask.isError && <p className="mt-1 text-xs text-bad">{addTask.error.message}</p>}
+            </div>
 
             <div className="mt-3 flex gap-4 text-xs">
               {goal.status === "active" ? (

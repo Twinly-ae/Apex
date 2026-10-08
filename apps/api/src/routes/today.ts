@@ -179,7 +179,7 @@ export default async function todayRoutes(app: FastifyInstance): Promise<void> {
     const topPriorities = openTasks.map(toTask);
 
     const activeGoals = goals.filter((g) => g.status === "active");
-    const focusGoal = [...activeGoals].sort(
+    const focusGoal = activeGoals.filter((g) => g.pace.nextStep).sort(
       (a, b) =>
         goalUrgency(a) - goalUrgency(b) ||
         a.pace.daysRemaining - b.pace.daysRemaining,

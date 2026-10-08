@@ -4,7 +4,8 @@ import { runJSON, runText } from "./ai";
 import { buildUserContext } from "./context";
 import { decrypt } from "./crypto";
 import { computeHealth } from "./health";
-import { dayString, weekStartString } from "./time";
+import { loadGoals } from "./goals";
+import { dayString, rangeForDayString, weekStartString } from "./time";
 
 const PERSONA =
   "You are Apex — HIS personal agent, not a generic assistant. You exist to run the " +
@@ -306,6 +307,8 @@ const REVIEW_FOCUS: Record<ReviewType, string> = {
     "Review his fitness & nutrition this week: protein/calorie adherence, training consistency, bodyweight trend, and what to adjust for the recomp.",
   money:
     "Review his money this week: net worth, spending vs savings, and 2–3 concrete actions toward his savings goal.",
+  goals:
+    "Review yearly and other active goals this week. Say what actually moved forward, name the goal most at risk, and suggest 1–3 specific tasks to plan next week. Base progress only on logged milestones, linked tasks and metrics.",
 };
 
 export async function generateReview(
@@ -332,6 +335,35 @@ export async function generateReview(
     extra = `Net-worth history (day:total AED): ${snaps
       .map((s) => `${s.day}:${s.totalAed}`)
       .join("; ") || "none"}.`;
+  } else if (type === "goals") {
+    const { start } = rangeForDayString(weekStartString());
+    const [goals, finishedTasks, finishedMilestones] = await Promise.all([
+      loadGoals(userId),
+      prisma.task.findMany({
+        where: { userId, goalId: { not: null }, done: true, doneAt: { gte: start } },
+        orderBy: { doneAt: "desc" },
+        take: 50,
+        select: { title: true, goal: { select: { title: true } } },
+      }),
+      prisma.goalMilestone.findMany({
+        where: { goal: { userId }, done: true, doneAt: { gte: start } },
+        orderBy: { doneAt: "desc" },
+        take: 50,
+        select: { title: true, goal: { select: { title: true } } },
+      }),
+    ]);
+    extra = `Active goals (yearly first): ${goals
+      .filter((g) => g.status === "active")
+      .sort((a, b) => Number(b.horizon === "year") - Number(a.horizon === "year"))
+      .map((g) => `${g.title}: ${g.pace.progressPct}% done; ${g.pace.status}; ` +
+        `${g.linkedTasks.filter((t) => !t.repeat && t.done).length}/` +
+        `${g.linkedTasks.filter((t) => !t.repeat).length} planned tasks done; ` +
+        `next: ${g.pace.nextStep ?? "none"}`)
+      .join("; ") || "none"}.\n` +
+      `Goal-linked tasks finished this week: ${finishedTasks.map((t) =>
+        `${t.goal?.title ?? "deleted goal"}: ${t.title}`).join("; ") || "none"}.\n` +
+      `Goal milestones finished this week: ${finishedMilestones.map((m) =>
+        `${m.goal.title}: ${m.title}`).join("; ") || "none"}.`;
   }
   const text = await runText({
     system: `${await personaFor(userId)} ${REVIEW_FOCUS[type]} Write a short, structured weekly review (a few short paragraphs or tight bullets). Be honest and specific.`,

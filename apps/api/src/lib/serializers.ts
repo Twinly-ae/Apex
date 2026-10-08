@@ -57,6 +57,7 @@ export function toTask(t: DbTask & { steps?: DbTaskStep[] }): Task {
     estMinutes: t.estMinutes,
     reminderLead: t.reminderLead,
     repeat: (t.repeat as TaskRepeat | null) ?? null,
+    goalId: t.goalId,
     actualMinutes: t.actualMinutes,
     timerStartedAt: t.timerStartedAt ? t.timerStartedAt.toISOString() : null,
     done: t.done,

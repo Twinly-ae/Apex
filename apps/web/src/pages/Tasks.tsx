@@ -19,6 +19,7 @@ import { TaskSheet } from "../components/logging/TaskSheet";
 import { TaskCalendar } from "../components/tasks/TaskCalendar";
 import {
   useDeleteTask,
+  useGoals,
   useStartTaskTimer,
   useStopTaskTimer,
   useTasks,
@@ -53,7 +54,7 @@ const PRIORITY_PILL: Record<number, string> = {
 };
 const PRIORITY_LABEL: Record<number, string> = { 1: "High", 2: "Med", 3: "Low" };
 
-function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
+function TaskCard({ task, goalTitle, onEdit }: { task: Task; goalTitle?: string; onEdit: (t: Task) => void }) {
   const update = useUpdateTask();
   const del = useDeleteTask();
   const updateStep = useUpdateTaskStep();
@@ -115,6 +116,7 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
               {PRIORITY_LABEL[task.priority]}
             </span>
             {est && <span>{est}</span>}
+            {goalTitle && <span className="text-accent">Goal: {goalTitle}</span>}
             {task.dueDate && (
               <span className="inline-flex items-center gap-1">
                 Due{" "}
@@ -260,11 +262,13 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
 
 export function Tasks() {
   const { data, isLoading } = useTasks();
+  const { data: goals = [] } = useGoals();
   const [addOpen, setAddOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [view, setView] = useState<"list" | "calendar">("list");
 
+  const goalTitles = new Map(goals.map((g) => [g.id, g.title]));
   const tasks = data ?? [];
   const open = tasks.filter((t) => !t.done);
   const done = tasks.filter((t) => t.done);
@@ -327,7 +331,7 @@ export function Tasks() {
             ) : (
               <ul className="space-y-2.5">
                 {open.map((t) => (
-                  <TaskCard key={t.id} task={t} onEdit={setEditTask} />
+                  <TaskCard key={t.id} task={t} goalTitle={t.goalId ? goalTitles.get(t.goalId) : undefined} onEdit={setEditTask} />
                 ))}
               </ul>
             )}
@@ -344,7 +348,7 @@ export function Tasks() {
               {showDone && (
                 <ul className="space-y-2.5">
                   {done.map((t) => (
-                    <TaskCard key={t.id} task={t} onEdit={setEditTask} />
+                    <TaskCard key={t.id} task={t} goalTitle={t.goalId ? goalTitles.get(t.goalId) : undefined} onEdit={setEditTask} />
                   ))}
                 </ul>
               )}

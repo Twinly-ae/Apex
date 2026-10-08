@@ -4,11 +4,13 @@ import { HabitsRow } from "../components/HabitsRow";
 import { GoalCard } from "../components/goals/GoalCard";
 import { GoalSheet } from "../components/goals/GoalSheet";
 import { HabitSheet } from "../components/logging/HabitSheet";
-import { useGoals, useHabits } from "../lib/queries";
+import { useGenerateReview, useGoals, useHabits, useReview } from "../lib/queries";
 
 export function Goals() {
   const { data: goals, isLoading } = useGoals();
   const { data: habits } = useHabits();
+  const weeklyReview = useReview("goals");
+  const generateReview = useGenerateReview();
   const [goalSheet, setGoalSheet] = useState(false);
   const [habitSheet, setHabitSheet] = useState(false);
 
@@ -47,6 +49,29 @@ export function Goals() {
           })}
         </div>
       )}
+
+      <section className="rounded-2xl border border-line bg-surface p-4">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted">Weekly goals review</h2>
+          <button
+            onClick={() => generateReview.mutate("goals")}
+            disabled={!weeklyReview.data?.configured || generateReview.isPending}
+            className="text-sm text-accent disabled:opacity-50"
+          >
+            {generateReview.isPending ? "Reviewing…" : weeklyReview.data?.text ? "Refresh" : "Generate"}
+          </button>
+        </div>
+        {weeklyReview.data?.text ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-text">{weeklyReview.data.text}</p>
+        ) : (
+          <p className="text-sm text-muted">
+            {weeklyReview.data?.configured === false
+              ? "Configure AI in Settings to generate your weekly review."
+              : "See what you finished, which goals need attention, and what to do next."}
+          </p>
+        )}
+        {generateReview.isError && <p className="mt-2 text-xs text-bad">{generateReview.error.message}</p>}
+      </section>
 
       <section>
         <div className="mb-2 flex items-center justify-between">

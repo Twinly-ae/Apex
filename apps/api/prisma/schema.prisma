@@ -553,6 +553,7 @@ model UniItem {
   endTime   String?
   location  String?
   notes     String?
+  reminderLead Int? // minutes before an assignment/exam deadline; null = off
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

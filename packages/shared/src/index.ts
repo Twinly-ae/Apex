@@ -343,6 +343,68 @@ export interface TodaySummary {
 }
 
 /* -------------------------------------------------------------------------- */
+/* University: courses, weekly classes, assignments and exams                 */
+/* -------------------------------------------------------------------------- */
+
+export const createCourseSchema = z.object({
+  name: z.string().trim().min(1).max(150),
+  code: z.string().trim().max(30).nullable().optional(),
+});
+export type CreateCourseInput = z.infer<typeof createCourseSchema>;
+
+export const uniKindSchema = z.enum(["class", "assignment", "exam"]);
+export type UniKind = z.infer<typeof uniKindSchema>;
+
+const localTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:mm");
+
+export const createUniItemSchema = z.object({
+  courseId: z.string().min(1),
+  kind: uniKindSchema,
+  title: z.string().trim().min(1).max(200),
+  dueAt: z.string().datetime().optional(),
+  weekday: z.number().int().min(0).max(6).optional(),
+  startTime: localTimeSchema.optional(),
+  endTime: localTimeSchema.optional(),
+  location: z.string().trim().max(150).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.kind === "class") {
+    if (value.weekday === undefined || !value.startTime || !value.endTime ||
+        value.endTime <= value.startTime || value.dueAt !== undefined) {
+      ctx.addIssue({ code: "custom", message: "Class needs a weekday and valid start/end times." });
+    }
+  } else if (!value.dueAt || value.weekday !== undefined ||
+             value.startTime !== undefined || value.endTime !== undefined) {
+    ctx.addIssue({ code: "custom", message: "Assignment or exam needs a due date." });
+  }
+});
+export type CreateUniItemInput = z.infer<typeof createUniItemSchema>;
+
+export const setUniItemDoneSchema = z.object({ done: z.boolean() });
+export type SetUniItemDoneInput = z.infer<typeof setUniItemDoneSchema>;
+
+export interface UniItem {
+  id: string;
+  courseId: string;
+  kind: UniKind;
+  title: string;
+  dueAt: string | null;
+  weekday: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+  notes: string | null;
+  done: boolean;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  code: string | null;
+  items: UniItem[];
+}
+
+/* -------------------------------------------------------------------------- */
 /* Goals (with deadlines → daily pace)                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -357,11 +419,14 @@ export type GoalCategory = z.infer<typeof goalCategorySchema>;
 
 export const goalStatusSchema = z.enum(["active", "done", "archived"]);
 export type GoalStatus = z.infer<typeof goalStatusSchema>;
+export const goalHorizonSchema = z.enum(["other", "year"]);
+export type GoalHorizon = z.infer<typeof goalHorizonSchema>;
 
 export const createGoalSchema = z.object({
   title: z.string().min(1).max(300),
   description: z.string().max(2000).nullable().optional(),
   category: goalCategorySchema.default("personal"),
+  horizon: goalHorizonSchema.default("other"),
   targetDate: z.string().datetime(),
   // Optional numeric tracking (e.g. revenue/weight goals).
   metricUnit: z.string().max(20).nullable().optional(),
@@ -422,6 +487,7 @@ export interface Goal {
   description: string | null;
   category: GoalCategory;
   status: GoalStatus;
+  horizon: GoalHorizon;
   targetDate: string;
   createdAt: string;
   metricUnit: string | null;

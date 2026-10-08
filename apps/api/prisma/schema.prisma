@@ -25,6 +25,7 @@ model User {
   waterLogs    WaterLog[]
   tasks        Task[]
   goals             Goal[]
+  courses           Course[]
   habits            Habit[]
   workouts          Workout[]
   trainingPlan      TrainingPlan?
@@ -156,6 +157,7 @@ model Goal {
   description  String?
   category     String    @default("personal")
   status       String    @default("active") // active | done | archived
+  horizon      String    @default("other")  // other | year
   targetDate   DateTime
   // Optional numeric tracking
   metricUnit   String?
@@ -522,4 +524,38 @@ model NotificationLog {
 
   @@unique([userId, dedupeKey])
   @@index([userId, createdAt])
+}
+
+
+/// A university course; each user's timetable and deadlines stay separate.
+model Course {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  code      String?
+  createdAt DateTime  @default(now())
+  items     UniItem[]
+
+  @@index([userId])
+}
+
+/// A weekly class or one-off assignment/exam for a course.
+model UniItem {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  kind      String   // class | assignment | exam
+  title     String
+  dueAt     DateTime?
+  weekday   Int?     // Monday = 0 … Sunday = 6, Dubai local time
+  startTime String?  // HH:mm, Dubai local time
+  endTime   String?
+  location  String?
+  notes     String?
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId, dueAt])
 }

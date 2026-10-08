@@ -13,6 +13,7 @@ export const PAGES: PageDef[] = [
   { id: "tasks", route: "/tasks", label: "Tasks" },
   { id: "health", route: "/health", label: "Health" },
   { id: "goals", route: "/goals", label: "Goals" },
+  { id: "uni", route: "/uni", label: "Uni" },
   { id: "money", route: "/money", label: "Money" },
   { id: "businesses", route: "/businesses", label: "Business" },
   { id: "coach", route: "/coach", label: "Apex" },
@@ -32,6 +33,7 @@ export const HOME_SECTIONS: { id: string; label: string }[] = [
   { id: "briefing", label: "Briefing" },
   { id: "plan", label: "Focus & day plan" },
   { id: "priorities", label: "Top priorities" },
+  { id: "uni", label: "Uni today" },
   { id: "training", label: "Training today" },
   { id: "habits", label: "Habits" },
 ];

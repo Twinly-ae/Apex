@@ -33,10 +33,18 @@ export function Goals() {
           next step.
         </p>
       ) : (
-        <div className="space-y-3">
-          {(goals ?? []).map((g) => (
-            <GoalCard key={g.id} goal={g} />
-          ))}
+        <div className="space-y-6">
+          {(["year", "other"] as const).map((horizon) => {
+            const items = (goals ?? []).filter((g) => g.horizon === horizon);
+            return items.length ? (
+              <section key={horizon} className="space-y-3">
+                <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  {horizon === "year" ? "Yearly goals" : "Other goals"}
+                </h2>
+                {items.map((g) => <GoalCard key={g.id} goal={g} />)}
+              </section>
+            ) : null;
+          })}
         </div>
       )}
 

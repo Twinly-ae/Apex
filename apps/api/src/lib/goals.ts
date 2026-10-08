@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import type { Goal, GoalCategory, GoalPace, GoalPaceStatus, GoalStatus } from "@apex/shared";
+import type { Goal, GoalCategory, GoalHorizon, GoalPace, GoalPaceStatus, GoalStatus } from "@apex/shared";
 import { prisma } from "../db";
 
 interface GoalRow {
@@ -100,6 +100,7 @@ export function serializeGoal(g: GoalWithMilestones, now: Date = new Date()): Go
     description: g.description,
     category: g.category as GoalCategory,
     status: g.status as GoalStatus,
+    horizon: g.horizon as GoalHorizon,
     targetDate: g.targetDate.toISOString(),
     createdAt: g.createdAt.toISOString(),
     metricUnit: g.metricUnit,

@@ -12,6 +12,7 @@ import { Notes } from "./pages/Notes";
 import { Settings } from "./pages/Settings";
 import { Tasks } from "./pages/Tasks";
 import { Today } from "./pages/Today";
+import { Uni } from "./pages/Uni";
 
 // Charts (recharts) are heavy — load chart-using screens only when visited.
 const Health = lazy(() =>
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/coach" element={<Coach />} />
         <Route path="/goals" element={<Goals />} />
+        <Route path="/uni" element={<Uni />} />
         <Route path="/businesses" element={<Businesses />} />
         <Route path="/meals" element={<Meals />} />
         <Route path="/notes" element={<Notes />} />

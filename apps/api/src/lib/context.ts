@@ -15,6 +15,7 @@ export async function buildUserContext(userId: string): Promise<string> {
     water,
     openTasks,
     goals,
+    courses,
     accounts,
     latestWeight,
     health,
@@ -36,6 +37,12 @@ export async function buildUserContext(userId: string): Promise<string> {
       take: 12,
     }),
     loadGoals(userId),
+    prisma.course.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { items: true },
+      take: 30,
+    }),
     loadAccounts(userId),
     prisma.bodyweightEntry.findFirst({
       where: { userId },
@@ -179,6 +186,26 @@ export async function buildUserContext(userId: string): Promise<string> {
     ? Math.round(scoreParts.reduce((s, n) => s + n, 0) / scoreParts.length)
     : null;
 
+  const classesToday = courses.flatMap((course) =>
+    course.items
+      .filter((item) => item.kind === "class" && item.weekday === localWeekdayMon0())
+      .map((item) =>
+        `${item.startTime}–${item.endTime} ${course.code ?? course.name}: ${item.title}${item.location ? ` (${item.location})` : ""}`,
+      ),
+  ).sort();
+  const deadlines = courses.flatMap((course) =>
+    course.items
+      .filter((item) => item.kind !== "class" && !item.done && item.dueAt)
+      .map((item) => ({ course, item })),
+  ).sort((a, b) => a.item.dueAt!.getTime() - b.item.dueAt!.getTime());
+  const uniLine = courses.length
+    ? `Uni courses: ${courses.map((c) => c.code ? `${c.code} (${c.name})` : c.name).join(", ")}.
+Classes today (Dubai time): ${classesToday.join("; ") || "none"}.
+Open assignments/exams (earliest first): ${deadlines.slice(0, 15).map(({ course, item }) =>
+      `${course.code ?? course.name} ${item.kind} "${item.title}" due ${dayString(item.dueAt!)} ${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit", hour12: false }).format(item.dueAt!)} Dubai`
+    ).join("; ") || "none"}.`
+    : "Uni: no courses or timetable entered yet; ask for course and deadline details instead of guessing.";
+
   const lines = [
     `Today: ${dayString()}.`,
     ...(statusLine ? [statusLine] : []),
@@ -202,13 +229,14 @@ export async function buildUserContext(userId: string): Promise<string> {
     `Strength trend (monthly best est. 1RM, last 3 months): ${strengthTrend}.`,
     `Open tasks (${openTasks.length}, highest priority first): ${tasksLine}.`,
     workloadLine,
+    uniLine,
     ...(calibrationLine ? [calibrationLine] : []),
     `Active goals: ${
       goals
         .filter((g) => g.status === "active")
         .map(
           (g) =>
-            `"${g.title}" — ${g.pace.status}, ${g.pace.daysRemaining}d left, next step: ${g.pace.nextStep ?? "n/a"}`,
+            `"${g.title}" [${g.horizon === "year" ? "YEARLY" : g.category}] — target ${dayString(new Date(g.targetDate))}, ${g.pace.status}, ${g.pace.daysRemaining}d left, next step: ${g.pace.nextStep ?? "n/a"}`,
         )
         .join("; ") || "none"
     }.`,

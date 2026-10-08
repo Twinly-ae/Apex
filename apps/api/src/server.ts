@@ -31,6 +31,7 @@ import taskRoutes from "./routes/tasks";
 import todayRoutes from "./routes/today";
 import trainingPlanRoutes from "./routes/training-plan";
 import trendsRoutes from "./routes/trends";
+import uniRoutes from "./routes/uni";
 import twinlyRoutes from "./routes/twinly";
 import waterRoutes from "./routes/water";
 import widgetRoutes from "./routes/widget";
@@ -124,6 +125,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(waterRoutes, { prefix: "/api/water" });
   await app.register(taskRoutes, { prefix: "/api/tasks" });
   await app.register(goalRoutes, { prefix: "/api/goals" });
+  await app.register(uniRoutes, { prefix: "/api/uni" });
   await app.register(habitRoutes, { prefix: "/api/habits" });
   await app.register(workoutRoutes, { prefix: "/api/workouts" });
   await app.register(trainingPlanRoutes, { prefix: "/api/training-plan" });

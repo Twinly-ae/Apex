@@ -21,6 +21,7 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       waterLogs,
       tasks,
       goals,
+      courses,
       habits,
       workouts,
       trainingPlan,
@@ -53,6 +54,7 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
         orderBy: { createdAt: "asc" },
         include: { milestones: { orderBy: { order: "asc" } } },
       }),
+      prisma.course.findMany({ where: { userId }, include: { items: true } }),
       prisma.habit.findMany({
         where: { userId },
         orderBy: { createdAt: "asc" },
@@ -118,6 +120,7 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       waterLogs,
       tasks,
       goals,
+      courses,
       habits,
       workouts,
       trainingPlan,

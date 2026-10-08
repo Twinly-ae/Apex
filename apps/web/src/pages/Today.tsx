@@ -7,6 +7,9 @@ import {
   Target,
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { Course } from "@apex/shared";
+import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import type { Task } from "@apex/shared";
 import { DayPlanBlocks } from "../components/DayPlanBlocks";
@@ -59,6 +62,9 @@ function PriorityItem({ task }: { task: Task }) {
 
 export function Today() {
   const { data, isLoading } = useToday();
+  const { data: courses = [] } = useQuery({
+    queryKey: ["uni"], queryFn: () => api.get<Course[]>("/api/uni/courses"),
+  });
   const briefing = useBriefing();
   const genBriefing = useGenerateBriefing();
   const plan = usePlan();
@@ -71,6 +77,17 @@ export function Today() {
   useLayoutVersion();
   const hidden = getHiddenSections();
   const aiOn = briefing.data?.configured ?? false;
+  const uniToday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dubai", weekday: "long",
+  }).format(new Date());
+  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const uniClasses = courses.flatMap((c) => c.items.filter((i) =>
+    i.kind === "class" && i.weekday === weekdays.indexOf(uniToday))
+    .map((i) => i.startTime + " " + (c.code ?? c.name) + " · " + i.title)).sort();
+  const uniDeadlines = courses.flatMap((c) => c.items.filter((i) =>
+    i.kind !== "class" && !i.done && i.dueAt)
+    .map((i) => ({ ...i, course: c.code ?? c.name })))
+    .sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? "")).slice(0, 3);
   const lowRecovery =
     health?.scores.recovery != null && health.scores.recovery < 34
       ? health.scores.recovery
@@ -139,6 +156,25 @@ export function Today() {
           </Link>
         </div>
       </header>
+
+      {!hidden.has("uni") && courses.length > 0 && (
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className={LABEL}>Uni today</span>
+            <Link to="/uni" className="text-xs text-accent">Open Uni</Link>
+          </div>
+          {uniClasses.length === 0 && uniDeadlines.length === 0
+            ? <p className="text-sm text-muted">No classes or open deadlines.</p>
+            : <ul className="space-y-1 text-sm text-text">
+              {uniClasses.map((item, index) => <li key={index}>{item}</li>)}
+              {uniDeadlines.map((item) => <li key={item.id}>
+                {item.kind}: {item.course} · {item.title} · {new Intl.DateTimeFormat(undefined, {
+                  timeZone: "Asia/Dubai", month: "short", day: "numeric",
+                }).format(new Date(item.dueAt!))}
+              </li>)}
+            </ul>}
+        </section>
+      )}
 
       {/* Morning wellbeing widget — gauges + score, taps through to Health */}
       {!hidden.has("wellbeing") && <WellbeingStrip />}

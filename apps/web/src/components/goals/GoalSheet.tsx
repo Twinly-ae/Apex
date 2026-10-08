@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GoalCategory } from "@apex/shared";
+import type { GoalCategory, GoalHorizon } from "@apex/shared";
 import { useAddGoal } from "../../lib/queries";
 import { Sheet, inputClass, primaryButtonClass, selectClass } from "../ui/Sheet";
 
@@ -21,6 +21,7 @@ export function GoalSheet({
   const add = useAddGoal();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<GoalCategory>("personal");
+  const [horizon, setHorizon] = useState<GoalHorizon>("other");
   const [targetDate, setTargetDate] = useState("");
   const [unit, setUnit] = useState("");
   const [targetValue, setTargetValue] = useState("");
@@ -29,6 +30,7 @@ export function GoalSheet({
   function reset() {
     setTitle("");
     setCategory("personal");
+    setHorizon("other");
     setTargetDate("");
     setUnit("");
     setTargetValue("");
@@ -40,6 +42,7 @@ export function GoalSheet({
     await add.mutateAsync({
       title: title.trim(),
       category,
+      horizon,
       targetDate: new Date(`${targetDate}T12:00:00`).toISOString(),
       metricUnit: unit.trim() || null,
       targetValue: targetValue ? Number(targetValue) : null,
@@ -60,6 +63,14 @@ export function GoalSheet({
           placeholder="e.g. Launch Twinly For Him line"
           className={inputClass}
         />
+        <label className="flex items-center gap-2 text-sm text-text">
+          <input type="checkbox" checked={horizon === "year"}
+            onChange={(e) => {
+              setHorizon(e.target.checked ? "year" : "other");
+              if (e.target.checked && !targetDate) setTargetDate(`${new Date().getFullYear()}-12-31`);
+            }} />
+          Yearly goal
+        </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-xs text-muted">Category</span>

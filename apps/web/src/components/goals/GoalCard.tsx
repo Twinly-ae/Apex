@@ -39,7 +39,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-text">{goal.title}</h3>
             <p className="mt-0.5 text-xs text-muted">
-              {goal.category} ·{" "}
+              {goal.horizon === "year" ? "yearly · " : ""}{goal.category} ·{" "}
               {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
               {ms.length > 0 && ` · ${msDone}/${ms.length} milestones (${msPct}%)`}
             </p>
@@ -183,6 +183,15 @@ export function GoalCard({ goal }: { goal: Goal }) {
                   Reopen
                 </button>
               )}
+              <button
+                onClick={() => updateGoal.mutate({
+                  id: goal.id,
+                  input: { horizon: goal.horizon === "year" ? "other" : "year" },
+                })}
+                className="text-accent"
+              >
+                {goal.horizon === "year" ? "Remove yearly tag" : "Make yearly"}
+              </button>
               <button
                 onClick={() => deleteGoal.mutate(goal.id)}
                 className="ml-auto text-muted hover:text-bad"

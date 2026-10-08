@@ -2,6 +2,7 @@
 // take from chat. Every executor returns a short human-readable result that
 // doubles as the tool_result the model sees.
 import type Anthropic from "@anthropic-ai/sdk";
+import { createUniItemSchema } from "@apex/shared";
 import { prisma } from "../db";
 import { createExpense, notionConfigured } from "../integrations/notion";
 import { ensureTrainingPlan } from "../routes/training-plan";
@@ -222,6 +223,49 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "add_course",
+    description: "Add a university course to the Uni page when he names one.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Course name" },
+        code: { type: "string", description: "Course code, if known" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "add_uni_item",
+    description: "Add a class meeting, assignment, or exam under an existing university course. For a class provide weekday (0=Monday to 6=Sunday), startTime and endTime as HH:mm in Dubai local time. For an assignment or exam provide dueAt as ISO datetime with timezone or YYYY-MM-DD (end of day Dubai).",
+    input_schema: {
+      type: "object",
+      properties: {
+        course: { type: "string", description: "Course name or code" },
+        kind: { type: "string", enum: ["class", "assignment", "exam"] },
+        title: { type: "string" },
+        dueAt: { type: "string" },
+        weekday: { type: "number", description: "Monday=0 … Sunday=6" },
+        startTime: { type: "string", description: "HH:mm Dubai time" },
+        endTime: { type: "string", description: "HH:mm Dubai time" },
+        location: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["course", "kind", "title"],
+    },
+  },
+  {
+    name: "complete_uni_item",
+    description: "Mark an assignment or exam done; match its title and optionally its course.",
+    input_schema: {
+      type: "object",
+      properties: {
+        item: { type: "string", description: "Part of assignment or exam title" },
+        course: { type: "string", description: "Course name or code if needed" },
+      },
+      required: ["item"],
+    },
+  },
+  {
     name: "add_goal",
     description: "Create a new goal he wants to start tracking.",
     input_schema: {
@@ -233,6 +277,7 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
           enum: ["business", "fitness", "money", "study", "personal"],
         },
         targetDate: { type: "string", description: "YYYY-MM-DD (default ~3 months out)" },
+        horizon: { type: "string", enum: ["other", "year"], description: "year for yearly goals" },
         description: { type: "string", description: "Why it matters / current status (optional)" },
         metricUnit: { type: "string", description: "e.g. AED, kg (optional)" },
         targetValue: { type: "number" },
@@ -252,6 +297,7 @@ export const COACH_TOOLS: Anthropic.Tool[] = [
         description: { type: "string", description: "New status/description text (replaces the old)" },
         status: { type: "string", enum: ["active", "done", "archived"] },
         targetDate: { type: "string", description: "New target date YYYY-MM-DD" },
+        horizon: { type: "string", enum: ["other", "year"] },
         currentValue: { type: "number", description: "New current metric value" },
       },
       required: ["goal"],
@@ -796,6 +842,84 @@ export async function executeCoachTool(
       return `✓ Bill paid: ${bill.name} — next due ${dayString(next)}`;
     }
 
+    case "add_course": {
+      const name = str(input.name);
+      if (!name) throw new Error("Course name is required");
+      const code = str(input.code);
+      const existing = await prisma.course.findMany({ where: { userId } });
+      if (existing.some((c) =>
+        c.name.toLowerCase() === name.toLowerCase() ||
+        (code && c.code?.toLowerCase() === code.toLowerCase()))) {
+        throw new Error("That course already exists");
+      }
+      await prisma.course.create({
+        data: { userId, name: name.slice(0, 150), code: code?.slice(0, 30) ?? null },
+      });
+      return "✓ Course added: " + (code ? code + " — " : "") + name;
+    }
+
+    case "add_uni_item": {
+      const query = str(input.course);
+      if (!query) throw new Error("Course is required");
+      const courses = await prisma.course.findMany({ where: { userId } });
+      const matches = courses.filter((c) =>
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        c.code?.toLowerCase() === query.toLowerCase());
+      if (matches.length !== 1) {
+        throw new Error(matches.length ? "Several courses match; use the exact code" :
+          "Course not found. Add it first. Existing: " + courses.map((c) => c.code ?? c.name).join(", "));
+      }
+      const rawDue = str(input.dueAt);
+      const dueAt = rawDue && /^\d{4}-\d{2}-\d{2}$/.test(rawDue)
+        ? rawDue + "T23:59:00+04:00"
+        : rawDue ?? undefined;
+      if (dueAt && Number.isNaN(Date.parse(dueAt))) throw new Error("Invalid due date");
+      const parsed = createUniItemSchema.safeParse({
+        courseId: matches[0].id,
+        kind: input.kind,
+        title: input.title,
+        ...(dueAt ? { dueAt: new Date(dueAt).toISOString() } : {}),
+        ...(input.weekday !== undefined ? { weekday: input.weekday } : {}),
+        ...(input.startTime !== undefined ? { startTime: input.startTime } : {}),
+        ...(input.endTime !== undefined ? { endTime: input.endTime } : {}),
+        ...(input.location !== undefined ? { location: input.location } : {}),
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      });
+      if (!parsed.success) throw new Error("Invalid uni item: " + parsed.error.issues.map((i) => i.message).join("; "));
+      const item = parsed.data;
+      await prisma.uniItem.create({
+        data: {
+          courseId: item.courseId, kind: item.kind, title: item.title,
+          dueAt: item.dueAt ? new Date(item.dueAt) : null,
+          weekday: item.weekday ?? null, startTime: item.startTime ?? null,
+          endTime: item.endTime ?? null, location: item.location ?? null,
+          notes: item.notes ?? null,
+        },
+      });
+      return "✓ " + item.kind + " added: " + matches[0].name + " — " + item.title;
+    }
+
+    case "complete_uni_item": {
+      const q = str(input.item);
+      if (!q) throw new Error("Item title is required");
+      const course = str(input.course);
+      const items = await prisma.uniItem.findMany({
+        where: { kind: { in: ["assignment", "exam"] }, done: false,
+          course: { userId } },
+        include: { course: true },
+      });
+      const matches = items.filter((item) =>
+        item.title.toLowerCase().includes(q.toLowerCase()) &&
+        (!course || item.course.name.toLowerCase().includes(course.toLowerCase()) ||
+          item.course.code?.toLowerCase() === course.toLowerCase()));
+      if (matches.length !== 1) {
+        throw new Error(matches.length ? "Several uni items match; include course and title" :
+          "No open assignment or exam matches that title");
+      }
+      await prisma.uniItem.update({ where: { id: matches[0].id }, data: { done: true } });
+      return "✓ Completed: " + matches[0].course.name + " — " + matches[0].title;
+    }
+
     case "add_goal": {
       const title = str(input.title);
       if (!title) throw new Error("title is required");
@@ -803,12 +927,15 @@ export async function executeCoachTool(
         ? (input.category as string)
         : "personal";
       const targetDate =
-        toDate(input.targetDate) ?? new Date(Date.now() + 90 * 86_400_000);
+        toDate(input.targetDate) ?? (input.horizon === "year"
+          ? new Date(new Date().getFullYear(), 11, 31, 12)
+          : new Date(Date.now() + 90 * 86_400_000));
       await prisma.goal.create({
         data: {
           userId,
           title: title.slice(0, 300),
           category,
+          horizon: input.horizon === "year" ? "year" : "other",
           targetDate,
           description: str(input.description)?.slice(0, 2000) ?? null,
           metricUnit: str(input.metricUnit)?.slice(0, 20) ?? null,
@@ -830,6 +957,11 @@ export async function executeCoachTool(
       if (description) {
         data.description = description.slice(0, 2000);
         changes.push("note updated");
+      }
+      const horizon = str(input.horizon);
+      if (horizon && ["other", "year"].includes(horizon)) {
+        data.horizon = horizon;
+        changes.push("horizon updated");
       }
       const status = str(input.status);
       if (status) {

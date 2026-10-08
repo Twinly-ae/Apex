@@ -2,10 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../db";
 
 /**
- * One-click export of everything the user has put into Apex, as a single JSON
- * document. Deliberately excludes secrets and encrypted-at-rest blobs: no
- * password hash, no raw statement text, no encrypted transaction descriptions —
- * bank statements are exported as their derived (non-sensitive) summaries.
+ * Export the authenticated user's Apex data as a single JSON document.
+ * Excludes login credentials, encrypted bank statement content and transaction
+ * descriptions, and browser push subscriptions (including their auth keys).
+ * Bank statements are exported as derived summaries and transaction amounts.
  */
 export default async function exportRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
@@ -20,6 +20,8 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       bodyweights,
       waterLogs,
       tasks,
+      noteFolders,
+      notes,
       goals,
       courses,
       habits,
@@ -33,7 +35,9 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       twinlySales,
       businesses,
       bankStatements,
+      aiConversations,
       aiMessages,
+      aiMemories,
       aiArtifacts,
       notifications,
     ] = await Promise.all([
@@ -48,7 +52,29 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
         orderBy: { measuredAt: "asc" },
       }),
       prisma.waterLog.findMany({ where: { userId }, orderBy: { loggedAt: "asc" } }),
-      prisma.task.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+      prisma.task.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        include: { steps: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },
+      }),
+      prisma.noteFolder.findMany({
+        where: { userId },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true, name: true, emoji: true, sortOrder: true, createdAt: true },
+      }),
+      prisma.note.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          folderId: true,
+          title: true,
+          content: true,
+          pinned: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
       prisma.goal.findMany({
         where: { userId },
         orderBy: { createdAt: "asc" },
@@ -97,7 +123,17 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
           },
         },
       }),
+      prisma.aiConversation.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, title: true, createdAt: true, updatedAt: true },
+      }),
       prisma.aiMessage.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+      prisma.aiMemory.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, content: true, source: true, createdAt: true },
+      }),
       prisma.aiArtifact.findMany({ where: { userId }, orderBy: { updatedAt: "asc" } }),
       prisma.notificationLog.findMany({
         where: { userId },
@@ -105,13 +141,14 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       }),
     ]);
 
+    reply.header("Cache-Control", "private, no-store");
     reply.header(
       "Content-Disposition",
       `attachment; filename="apex-export-${new Date().toISOString().slice(0, 10)}.json"`,
     );
     return {
       app: "Apex",
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       user,
       settings,
@@ -119,6 +156,8 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       bodyweights,
       waterLogs,
       tasks,
+      noteFolders,
+      notes,
       goals,
       courses,
       habits,
@@ -132,7 +171,9 @@ export default async function exportRoutes(app: FastifyInstance): Promise<void> 
       twinlySales,
       businesses,
       bankStatements,
+      aiConversations,
       aiMessages,
+      aiMemories,
       aiArtifacts,
       notifications,
     };

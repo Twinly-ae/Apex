@@ -952,6 +952,7 @@ function useBusinessMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
     mutationFn: fn,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["businesses"] });
+      qc.invalidateQueries({ queryKey: ["business-pnl"] });
       qc.invalidateQueries({ queryKey: keys.today });
     },
   });

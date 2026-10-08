@@ -102,7 +102,7 @@ export function PnlCard() {
         ))}
       </div>
       <p className="mt-3 text-xs text-muted">
-        Costs = cost of goods + Notion expenses. The signed number is profit.
+        Estimated profit = logged revenue minus daily costs and cached Notion expenses. Check for any costs logged twice.
       </p>
     </section>
   );

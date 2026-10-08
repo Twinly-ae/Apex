@@ -32,7 +32,12 @@ function toSale(s: DbSale): TwinlySale {
 }
 
 function toBusiness(b: DbBusiness): Business {
-  return { id: b.id, name: b.name, sortOrder: b.sortOrder };
+  return {
+    id: b.id,
+    name: b.name,
+    sortOrder: b.sortOrder,
+    notionExpenseSource: b.notionExpenseSource === "twinly",
+  };
 }
 
 /** Always return at least one business, creating a default the first time. */
@@ -43,7 +48,7 @@ async function ensureBusinesses(userId: string): Promise<DbBusiness[]> {
   });
   if (existing.length) return existing;
   const created = await prisma.business.create({
-    data: { userId, name: "Twinly", sortOrder: 0 },
+    data: { userId, name: "Twinly", sortOrder: 0, notionExpenseSource: "twinly" },
   });
   return [created];
 }
@@ -88,16 +93,15 @@ export default async function businessRoutes(
   });
 
   // GET /api/businesses/pnl?months=6 — monthly revenue / costs / expenses /
-  // profit per business. Notion-synced expenses are overheads of the default
-  // (first) business, since that's the Twinly ledger they come from.
+  // profit per business. Unlinked Notion expenses stay visible in their own row.
   app.get("/pnl", async (request): Promise<BusinessPnl[]> => {
     const raw = Number(
       (request.query as Record<string, unknown> | undefined)?.months,
     );
-    const monthsBack = Math.min(Math.max(Number.isFinite(raw) ? raw : 6, 1), 24);
+    const monthsBack = Math.min(Math.max(Number.isFinite(raw) ? Math.floor(raw) : 6, 1), 24);
 
     // The month keys, oldest → newest, ending this month.
-    const now = new Date();
+    const now = new Date(`${dayString().slice(0, 7)}-01T00:00:00Z`);
     const keys: string[] = [];
     for (let i = monthsBack - 1; i >= 0; i--) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
@@ -106,13 +110,14 @@ export default async function businessRoutes(
     const since = `${keys[0]}-01`;
 
     const businesses = await ensureBusinesses(request.userId);
+    const linkedBusiness = businesses.find((b) => b.notionExpenseSource === "twinly");
     const [sales, expenses] = await Promise.all([
       prisma.twinlySale.findMany({
         where: { userId: request.userId, day: { gte: since } },
         select: { businessId: true, day: true, revenueAed: true, costAed: true },
       }),
       prisma.twinlyExpense.findMany({
-        where: { userId: request.userId, date: { gte: new Date(`${since}T00:00:00Z`) } },
+        where: { userId: request.userId, date: { gte: new Date(new Date(`${since}T00:00:00Z`).getTime() - 4 * 60 * 60_000) } },
         select: { date: true, amountAed: true },
       }),
     ]);
@@ -120,11 +125,11 @@ export default async function businessRoutes(
     const expByMonth = new Map<string, number>();
     for (const e of expenses) {
       if (!e.date) continue;
-      const m = e.date.toISOString().slice(0, 7);
+      const m = dayString(e.date).slice(0, 7);
       expByMonth.set(m, (expByMonth.get(m) ?? 0) + e.amountAed);
     }
 
-    return businesses.map((b, idx) => {
+    const result = businesses.map((b) => {
       const months: PnlMonth[] = keys.map((month) => {
         let revenueAed = 0;
         let costAed = 0;
@@ -134,7 +139,7 @@ export default async function businessRoutes(
             costAed += s.costAed;
           }
         }
-        const expensesAed = idx === 0 ? (expByMonth.get(month) ?? 0) : 0;
+        const expensesAed = linkedBusiness?.id === b.id ? (expByMonth.get(month) ?? 0) : 0;
         return {
           month,
           revenueAed: round2(revenueAed),
@@ -145,6 +150,20 @@ export default async function businessRoutes(
       });
       return { id: b.id, name: b.name, months };
     });
+    if (!linkedBusiness && [...expByMonth.values()].some((amount) => amount !== 0)) {
+      result.push({
+        id: "unassigned-notion-expenses",
+        name: "Notion expenses (choose a business below)",
+        months: keys.map((month) => ({
+          month,
+          revenueAed: 0,
+          costAed: 0,
+          expensesAed: round2(expByMonth.get(month) ?? 0),
+          profitAed: round2(-(expByMonth.get(month) ?? 0)),
+        })),
+      });
+    }
+    return result;
   });
 
   app.post("/", async (request, reply) => {
@@ -164,12 +183,30 @@ export default async function businessRoutes(
     const id = (request.params as { id: string }).id;
     const body = parseOr400(updateBusinessSchema, request.body, reply);
     if (!body) return;
-    const result = await prisma.business.updateMany({
-      where: { id, userId: request.userId },
-      data: {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
-      },
+    // Keep the one Notion ledger attached to exactly one business at a time.
+    // The database unique constraint also protects against concurrent assignments.
+    const result = await prisma.$transaction(async (tx) => {
+      const business = await tx.business.findFirst({
+        where: { id, userId: request.userId },
+        select: { id: true },
+      });
+      if (!business) return { count: 0 };
+      if (body.notionExpenseSource === true) {
+        await tx.business.updateMany({
+          where: { userId: request.userId, notionExpenseSource: "twinly" },
+          data: { notionExpenseSource: null },
+        });
+      }
+      return tx.business.updateMany({
+        where: { id, userId: request.userId },
+        data: {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
+          ...(body.notionExpenseSource !== undefined
+            ? { notionExpenseSource: body.notionExpenseSource ? "twinly" : null }
+            : {}),
+        },
+      });
     });
     if (result.count === 0) {
       reply.code(404).send({ error: "Not found" });

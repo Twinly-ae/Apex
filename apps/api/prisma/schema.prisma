@@ -436,11 +436,14 @@ model Business {
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   sortOrder Int          @default(0)
+  // The Notion expenses database belongs to one business, regardless of its name/order.
+  notionExpenseSource String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   sales     TwinlySale[]
 
   @@index([userId])
+  @@unique([userId, notionExpenseSource])
 }
 
 /// Daily sales for one business (manual entry).

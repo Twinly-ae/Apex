@@ -19,7 +19,7 @@ function Overview() {
   const list = businesses ?? [];
   const revenue = list.reduce((s, b) => s + b.monthRevenueAed, 0);
   const profit = list.reduce((s, b) => s + b.monthProfitAed, 0);
-  const exp = expenses?.connected ? expenses.monthToDateAed : 0;
+  const exp = expenses?.monthToDateAed ?? 0;
   const net = profit - exp;
 
   return (
@@ -35,13 +35,13 @@ function Overview() {
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted">Profit</div>
+          <div className="text-xs text-muted">Before Notion</div>
           <div className="mt-0.5 text-lg font-semibold tabular-nums text-text">
             {aed(profit)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted">Net</div>
+          <div className="text-xs text-muted">Est. net</div>
           <div
             className={`mt-0.5 text-lg font-semibold tabular-nums ${
               net >= 0 ? "text-good" : "text-bad"

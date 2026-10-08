@@ -182,6 +182,41 @@ async function checkTaskReminders(userId: string): Promise<void> {
   }
 }
 
+/** Remind only for deadlines with a chosen lead time; edits create a new reminder time. */
+async function checkUniReminders(userId: string): Promise<void> {
+  const now = Date.now();
+  const items = await prisma.uniItem.findMany({
+    where: {
+      course: { userId },
+      kind: { in: ["assignment", "exam"] },
+      done: false,
+      dueAt: {
+        gte: new Date(now - 12 * 60 * 60_000),
+        lte: new Date(now + 7 * DAY_MS),
+      },
+      reminderLead: { not: null },
+    },
+    include: { course: { select: { name: true, code: true } } },
+  });
+  for (const item of items) {
+    if (!item.dueAt || item.reminderLead == null) continue;
+    const remindAt = item.dueAt.getTime() - item.reminderLead * 60_000;
+    if (remindAt > now || remindAt <= now - 12 * 60 * 60_000) continue;
+    const dueDay = dayString(item.dueAt);
+    const today = dayString();
+    const tomorrow = dayString(new Date(now + DAY_MS));
+    const when = dueDay === today ? "today" : dueDay === tomorrow ? "tomorrow" : dueDay;
+    await notifyOnce(
+      userId,
+      "uni",
+      `uni:${item.id}:${Math.round(remindAt / 60_000)}`,
+      item.kind === "exam" ? "Exam coming up" : "Assignment due soon",
+      `${item.course.code ?? item.course.name}: ${item.title} is due ${when} at ${dubaiTime(item.dueAt)}.`,
+      "/uni",
+    );
+  }
+}
+
 /** Evaluate every rule for every user. Safe to call frequently (rules dedupe). */
 export async function runNotificationChecks(): Promise<void> {
   const users = await prisma.user.findMany({
@@ -198,6 +233,7 @@ export async function runNotificationChecks(): Promise<void> {
         await checkMacros(u.id, s);
       }
       await checkTaskReminders(u.id);
+      await checkUniReminders(u.id);
     } catch (err) {
       // Never let one user's failure stop the loop.
       console.error("[notifications]", err);

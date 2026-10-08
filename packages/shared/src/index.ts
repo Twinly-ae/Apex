@@ -352,6 +352,12 @@ export const createCourseSchema = z.object({
 });
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 
+export const updateCourseSchema = createCourseSchema.partial().refine(
+  (value) => Object.keys(value).length > 0,
+  "Add a name or code to update.",
+);
+export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
+
 export const uniKindSchema = z.enum(["class", "assignment", "exam"]);
 export type UniKind = z.infer<typeof uniKindSchema>;
 
@@ -367,10 +373,12 @@ export const createUniItemSchema = z.object({
   endTime: localTimeSchema.optional(),
   location: z.string().trim().max(150).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
+  reminderLead: z.number().int().min(0).max(10080).nullable().optional(),
 }).superRefine((value, ctx) => {
   if (value.kind === "class") {
     if (value.weekday === undefined || !value.startTime || !value.endTime ||
-        value.endTime <= value.startTime || value.dueAt !== undefined) {
+        value.endTime <= value.startTime || value.dueAt !== undefined ||
+        value.reminderLead != null) {
       ctx.addIssue({ code: "custom", message: "Class needs a weekday and valid start/end times." });
     }
   } else if (!value.dueAt || value.weekday !== undefined ||
@@ -379,6 +387,20 @@ export const createUniItemSchema = z.object({
   }
 });
 export type CreateUniItemInput = z.infer<typeof createUniItemSchema>;
+
+export const updateUniItemSchema = z.object({
+  courseId: z.string().min(1).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  dueAt: z.string().datetime().optional(),
+  weekday: z.number().int().min(0).max(6).optional(),
+  startTime: localTimeSchema.optional(),
+  endTime: localTimeSchema.optional(),
+  location: z.string().trim().max(150).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+  reminderLead: z.number().int().min(0).max(10080).nullable().optional(),
+  done: z.boolean().optional(),
+}).refine((value) => Object.keys(value).length > 0, "Add a change to update.");
+export type UpdateUniItemInput = z.infer<typeof updateUniItemSchema>;
 
 export const setUniItemDoneSchema = z.object({ done: z.boolean() });
 export type SetUniItemDoneInput = z.infer<typeof setUniItemDoneSchema>;
@@ -394,6 +416,7 @@ export interface UniItem {
   endTime: string | null;
   location: string | null;
   notes: string | null;
+  reminderLead: number | null;
   done: boolean;
 }
 

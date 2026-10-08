@@ -1,0 +1,1 @@
+ALTER TABLE "UniItem" ADD COLUMN "reminderLead" INTEGER;

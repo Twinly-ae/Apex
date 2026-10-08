@@ -6,11 +6,16 @@ import {
   Dumbbell,
   History,
   type LucideIcon,
+  Mic,
+  MicOff,
   PiggyBank,
   Pencil,
   Plus,
   Sparkles,
+  Square,
   SquarePen,
+  Volume2,
+  VolumeX,
   X,
   Sun,
   Target,
@@ -67,6 +72,31 @@ function when(iso: string): string {
   if (days === 1) return "yesterday";
   if (days < 7) return `${days}d ago`;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// Browser speech recognition has no consistently shipped TypeScript DOM declaration.
+type BrowserSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: {
+    results: ArrayLike<ArrayLike<{ transcript: string }>>;
+  }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+function speechRecognitionConstructor(): (new () => BrowserSpeechRecognition) | null {
+  if (typeof window === "undefined") return null;
+  const browser = window as Window & {
+    SpeechRecognition?: new () => BrowserSpeechRecognition;
+    webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
+  };
+  return browser.SpeechRecognition ?? browser.webkitSpeechRecognition ?? null;
 }
 
 function CoachAvatar({ size = "h-8 w-8" }: { size?: string }) {
@@ -332,13 +362,43 @@ export function Coach() {
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [finishingDictation, setFinishingDictation] = useState(false);
+  const [speakReplies, setSpeakReplies] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(
     null,
   );
   const rename = useRenameConversation();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const speechGenerationRef = useRef(0);
+  const speakRepliesRef = useRef(false);
+  const conversationGenerationRef = useRef(0);
   const messages = data?.messages ?? [];
+  const dictationSupported = speechRecognitionConstructor() !== null;
+  const speechSupported =
+    typeof window !== "undefined" &&
+    "speechSynthesis" in window &&
+    typeof SpeechSynthesisUtterance !== "undefined";
+
+  // Release the microphone and stop playback when leaving the chat page.
+  useEffect(() => () => {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recognition) {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
+    }
+    speechGenerationRef.current += 1;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -352,9 +412,109 @@ export function Coach() {
     el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
   }, [text]);
 
+  function cancelDictation() {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recognition) {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
+    }
+    setListening(false);
+    setFinishingDictation(false);
+  }
+
+  function startDictation() {
+    const Recognition = speechRecognitionConstructor();
+    if (!Recognition || recognitionRef.current) return;
+    setVoiceError(null);
+    stopReading();
+    try {
+      const recognition = new Recognition();
+      recognition.lang = navigator.language || "en-US";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        if (recognitionRef.current !== recognition) return;
+        const transcript = event.results[0]?.[0]?.transcript?.trim();
+        if (transcript) {
+          setText((current) =>
+            current ? `${current}${/\s$/.test(current) ? "" : " "}${transcript}` : transcript,
+          );
+        }
+      };
+      recognition.onerror = (event) => {
+        if (recognitionRef.current !== recognition || event.error === "aborted") return;
+        setVoiceError(
+          event.error === "not-allowed" || event.error === "service-not-allowed"
+            ? "Microphone permission was denied. Allow it in your browser settings."
+            : event.error === "no-speech"
+              ? "No speech detected. Tap the mic to try again."
+              : "Voice typing stopped. Check your microphone and try again.",
+        );
+      };
+      recognition.onend = () => {
+        if (recognitionRef.current !== recognition) return;
+        recognitionRef.current = null;
+        setListening(false);
+        setFinishingDictation(false);
+      };
+      recognitionRef.current = recognition;
+      recognition.start(); // Only called by the user's tap.
+      setListening(true);
+    } catch {
+      cancelDictation();
+      setVoiceError("Could not start the microphone. Check browser permissions.");
+    }
+  }
+
+  function stopDictation() {
+    if (!recognitionRef.current || finishingDictation) return;
+    setFinishingDictation(true);
+    try {
+      recognitionRef.current.stop(); // Delivers final text before onend.
+    } catch {
+      cancelDictation();
+      setVoiceError("Voice typing stopped. Tap the mic to try again.");
+    }
+  }
+
+  function stopReading() {
+    speechGenerationRef.current += 1;
+    if (speechSupported) window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
+
+  function readReply(content: string) {
+    if (!speechSupported || !content.trim()) return;
+    stopReading();
+    const generation = ++speechGenerationRef.current;
+    try {
+      const utterance = new SpeechSynthesisUtterance(content);
+      utterance.lang = navigator.language || "en-US";
+      utterance.onend = () => {
+        if (speechGenerationRef.current === generation) setSpeaking(false);
+      };
+      utterance.onerror = () => {
+        if (speechGenerationRef.current !== generation) return;
+        setSpeaking(false);
+        setVoiceError("This browser could not read the reply aloud.");
+      };
+      window.speechSynthesis.speak(utterance);
+      setSpeaking(true);
+    } catch {
+      setSpeaking(false);
+      setVoiceError("This browser could not read the reply aloud.");
+    }
+  }
+
   async function submit(message: string) {
     const m = message.trim();
-    if (!m || send.isPending) return;
+    if (!m || send.isPending || listening || finishingDictation) return;
+    const conversationGeneration = conversationGenerationRef.current;
+    stopReading();
     setText("");
     setError(null);
     setPending(m);
@@ -364,6 +524,9 @@ export function Coach() {
         conversationId: activeId ?? data?.conversationId ?? undefined,
       });
       setActiveId(res.conversationId);
+      if (speakRepliesRef.current && conversationGenerationRef.current === conversationGeneration) {
+        readReply(res.content);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Apex is unavailable.");
     } finally {
@@ -387,6 +550,9 @@ export function Coach() {
   }
 
   async function startNewChat() {
+    conversationGenerationRef.current += 1;
+    cancelDictation();
+    stopReading();
     setError(null);
     const c = await newConvo.mutateAsync();
     setActiveId(c.id);
@@ -487,6 +653,17 @@ export function Coach() {
               <div className="max-w-[82%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md border border-line bg-surface px-4 py-2.5 text-sm leading-relaxed text-text">
                 {m.content}
               </div>
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={() => readReply(m.content)}
+                  aria-label="Read this reply aloud"
+                  disabled={listening || finishingDictation}
+                  className="pressable mb-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted"
+                >
+                  <Volume2 className="h-4 w-4" strokeWidth={2} />
+                </button>
+              )}
             </div>
           ),
         )}
@@ -532,14 +709,65 @@ export function Coach() {
             className="max-h-[132px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-[15px] leading-snug text-text placeholder:text-muted/70 outline-none disabled:opacity-50"
           />
           <button
+            type="button"
+            onClick={listening ? stopDictation : startDictation}
+            aria-label={listening ? "Stop voice typing" : "Start voice typing"}
+            aria-pressed={listening}
+            disabled={!dictationSupported || finishingDictation || !!(data && !data.configured)}
+            className={`pressable grid h-9 w-9 shrink-0 place-items-center rounded-full disabled:opacity-40 ${
+              listening ? "bg-accent/20 text-accent" : "text-muted"
+            }`}
+          >
+            {listening ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}
+          </button>
+          <button
             type="submit"
             aria-label="Send"
-            disabled={!text.trim() || send.isPending}
+            disabled={!text.trim() || send.isPending || listening || finishingDictation}
             className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-strong text-white shadow-glow disabled:opacity-40 disabled:shadow-none"
           >
             <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
           </button>
         </div>
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 text-[11px] text-muted">
+          <span aria-live="polite">
+            {finishingDictation
+              ? "Finishing voice input…"
+              : listening
+                ? "Listening… tap the mic to finish."
+                : dictationSupported
+                  ? "Your browser's speech provider may receive audio. Review text before sending."
+                  : "Voice typing is unavailable in this browser."}
+          </span>
+          <span className="flex items-center gap-2">
+            {speaking && (
+              <button
+                type="button"
+                onClick={stopReading}
+                aria-label="Stop reading aloud"
+                className="pressable flex items-center gap-1 text-accent"
+              >
+                <Square className="h-3 w-3" /> Stop
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (speakRepliesRef.current) stopReading();
+                speakRepliesRef.current = !speakRepliesRef.current;
+                setSpeakReplies(speakRepliesRef.current);
+              }}
+              disabled={!speechSupported}
+              aria-pressed={speakReplies}
+              aria-label={speakReplies ? "Turn off spoken replies" : "Turn on spoken replies"}
+              className="pressable flex items-center gap-1 disabled:opacity-40"
+            >
+              {speakReplies ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              Speak replies {speakReplies ? "on" : "off"}
+            </button>
+          </span>
+        </div>
+        {voiceError && <p role="alert" className="mt-1 px-2 text-xs text-bad">{voiceError}</p>}
       </form>
 
       {/* Chat history */}
@@ -606,6 +834,9 @@ export function Coach() {
                     <>
                       <button
                         onClick={() => {
+                          conversationGenerationRef.current += 1;
+                          cancelDictation();
+                          stopReading();
                           setActiveId(c.id);
                           setHistoryOpen(false);
                         }}

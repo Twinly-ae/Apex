@@ -1016,6 +1016,7 @@ export type CreateBusinessInput = z.infer<typeof createBusinessSchema>;
 export const updateBusinessSchema = z.object({
   name: z.string().min(1).max(80).optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
+  notionExpenseSource: z.boolean().optional(),
 });
 export type UpdateBusinessInput = z.infer<typeof updateBusinessSchema>;
 
@@ -1023,6 +1024,7 @@ export interface Business {
   id: string;
   name: string;
   sortOrder: number;
+  notionExpenseSource: boolean;
 }
 
 /** A business plus its month-to-date sales rollup. */

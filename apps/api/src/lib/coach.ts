@@ -4,7 +4,7 @@ import { runJSON, runText } from "./ai";
 import { buildUserContext } from "./context";
 import { decrypt } from "./crypto";
 import { computeHealth } from "./health";
-import { dayString, weekStartString } from "./time";
+import { dayString, rangeForDayString, weekStartString } from "./time";
 
 const PERSONA =
   "You are Apex — HIS personal agent, not a generic assistant. You exist to run the " +
@@ -301,7 +301,7 @@ export async function generatePaymentsReview(
 
 const REVIEW_FOCUS: Record<ReviewType, string> = {
   twinly:
-    "Review the Twinly business this week: sales/revenue/profit trend, expenses, and the single most important thing to focus on next week.",
+    "Review only the business linked to the Twinly Notion expenses this week: manual sales, direct costs, cached Notion overhead and one priority for next week. If no business is linked, say the business owner must be selected in Businesses.",
   fitness:
     "Review his fitness & nutrition this week: protein/calorie adherence, training consistency, bodyweight trend, and what to adjust for the recomp.",
   money:
@@ -315,14 +315,40 @@ export async function generateReview(
   const ctx = await buildUserContext(userId);
   let extra = "";
   if (type === "twinly") {
-    const sales = await prisma.twinlySale.findMany({
-      where: { userId },
-      orderBy: { day: "desc" },
-      take: 14,
+    const business = await prisma.business.findFirst({
+      where: { userId, notionExpenseSource: "twinly" },
+      select: { id: true, name: true },
     });
-    extra = `Recent Twinly daily sales (day, revenue AED, orders, cost AED): ${sales
-      .map((s) => `${s.day}:${s.revenueAed}/${s.orders}/${s.costAed}`)
-      .join("; ") || "none logged"}.`;
+    if (!business) {
+      extra = "No business is linked to Twinly Notion expenses. Do not attribute another business's sales or expenses to Twinly. Ask to select the business in Businesses.";
+    } else {
+      const thisWeek = weekStartString();
+      const previousWeek = new Date(new Date(`${thisWeek}T00:00:00Z`).getTime() - 7 * 24 * 60 * 60_000)
+        .toISOString().slice(0, 10);
+      const today = dayString();
+      const [sales, expenses] = await Promise.all([
+        prisma.twinlySale.findMany({
+          where: { userId, businessId: business.id, day: { gte: previousWeek, lte: today } },
+          orderBy: { day: "desc" },
+          select: { day: true, revenueAed: true, orders: true, costAed: true },
+        }),
+        prisma.twinlyExpense.findMany({
+          where: { userId, date: { gte: rangeForDayString(previousWeek).start } },
+          select: { date: true, amountAed: true },
+        }),
+      ]);
+      const totals = (from: string, to: string) => {
+        const rows = sales.filter((row) => row.day >= from && row.day <= to);
+        const overhead = expenses.reduce(
+          (sum, row) => sum + (row.date && dayString(row.date) >= from && dayString(row.date) <= to ? row.amountAed : 0),
+          0,
+        );
+        return `revenue AED ${rows.reduce((sum, row) => sum + row.revenueAed, 0)}, ${rows.reduce((sum, row) => sum + row.orders, 0)} orders, direct costs AED ${rows.reduce((sum, row) => sum + row.costAed, 0)}, cached Notion expenses AED ${overhead}`;
+      };
+      const previousSunday = new Date(new Date(`${thisWeek}T00:00:00Z`).getTime() - 24 * 60 * 60_000)
+        .toISOString().slice(0, 10);
+      extra = `Linked business: ${business.name} (id ${business.id}). This week ${thisWeek}–${today}: ${totals(thisWeek, today)}. Previous week ${previousWeek}–${previousSunday}: ${totals(previousWeek, previousSunday)}. Daily manual sales (latest first): ${sales.slice(0, 14).map((row) => `${row.day}: ${row.revenueAed} AED, ${row.orders} orders, ${row.costAed} AED direct costs`).join("; ") || "none logged"}. Manual costs and cached Notion expenses may overlap; do not claim audited net profit.`;
+    }
   } else if (type === "money") {
     const snaps = await prisma.netWorthSnapshot.findMany({
       where: { userId },

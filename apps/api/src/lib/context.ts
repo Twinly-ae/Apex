@@ -4,11 +4,15 @@ import { computeHealth } from "./health";
 import { loadAccounts, netWorthTotal } from "./money";
 import { computePrs, e1rm, progressionSummary } from "./prs";
 import { STATUS_LABEL, effectiveStatus } from "./status";
-import { dayRange, dayString, localWeekdayMon0 } from "./time";
+import { dayRange, dayString, localWeekdayMon0, rangeForDayString } from "./time";
 
 /** A compact, plain-text snapshot of the user's day for the AI to reason over. */
 export async function buildUserContext(userId: string): Promise<string> {
   const { start, end } = dayRange();
+  const today = dayString();
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const last14 = dayString(new Date(Date.now() - 13 * 24 * 60 * 60_000));
+  const salesSince = last14 < monthStart ? last14 : monthStart;
   const [
     settings,
     meals,
@@ -17,6 +21,9 @@ export async function buildUserContext(userId: string): Promise<string> {
     goals,
     courses,
     accounts,
+    businesses,
+    recentSales,
+    notionExpenses,
     latestWeight,
     health,
     plannedWorkouts,
@@ -44,6 +51,20 @@ export async function buildUserContext(userId: string): Promise<string> {
       take: 30,
     }),
     loadAccounts(userId),
+    prisma.business.findMany({
+      where: { userId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, name: true, notionExpenseSource: true },
+    }),
+    prisma.twinlySale.findMany({
+      where: { userId, day: { gte: salesSince, lte: today } },
+      orderBy: { day: "desc" },
+      select: { businessId: true, day: true, revenueAed: true, orders: true, costAed: true },
+    }),
+    prisma.twinlyExpense.findMany({
+      where: { userId, date: { gte: rangeForDayString(monthStart).start } },
+      select: { date: true, amountAed: true },
+    }),
     prisma.bodyweightEntry.findFirst({
       where: { userId },
       orderBy: { measuredAt: "desc" },
@@ -136,7 +157,6 @@ export async function buildUserContext(userId: string): Promise<string> {
 
   // Open tasks with priority, estimate, due-date urgency, and any next sub-step
   // (everything the planner needs to time-block the day around real tasks).
-  const today = dayString();
   let totalEstMin = 0;
   const tasksLine =
     openTasks
@@ -206,6 +226,31 @@ Open assignments/exams (earliest first): ${deadlines.slice(0, 15).map(({ course,
     ).join("; ") || "none"}.`
     : "Uni: no courses or timetable entered yet; ask for course and deadline details instead of guessing.";
 
+  // Month-to-date sales are manual; the separate Notion amount may contain
+  // direct costs already in daily sales, so never imply an audited net profit.
+  const linkedBusiness = businesses.find((b) => b.notionExpenseSource === "twinly");
+  const notionMonthAed = notionExpenses.reduce(
+    (sum, e) => sum + (e.date && dayString(e.date) >= monthStart && dayString(e.date) <= today ? e.amountAed : 0),
+    0,
+  );
+  const businessLines = businesses.map((b) => {
+    const sales = recentSales.filter((s) => s.businessId === b.id);
+    const monthSales = sales.filter((s) => s.day >= monthStart);
+    const revenue = monthSales.reduce((sum, row) => sum + row.revenueAed, 0);
+    const directCosts = monthSales.reduce((sum, row) => sum + row.costAed, 0);
+    const orders = monthSales.reduce((sum, row) => sum + row.orders, 0);
+    const recent = sales.slice(0, 3).map((row) => `${row.day}: revenue ${row.revenueAed}, orders ${row.orders}, direct costs ${row.costAed}`).join("; ") || "none";
+    const overhead = linkedBusiness?.id === b.id ? `, cached Notion expenses AED ${Math.round(notionMonthAed * 100) / 100}` : "";
+    return `${b.name} [id ${b.id}]: month-to-date manual revenue AED ${Math.round(revenue * 100) / 100}, ${orders} orders, direct costs AED ${Math.round(directCosts * 100) / 100}${overhead}; latest daily logs: ${recent}.`;
+  });
+  const businessLine = businesses.length
+    ? `Businesses (AED; month-to-date since ${monthStart}): ${businessLines.join(" ")} ${
+        !linkedBusiness && notionMonthAed
+          ? `Unassigned cached Notion expenses AED ${Math.round(notionMonthAed * 100) / 100}; ask which business owns them before assigning.`
+          : ""
+      } Manual costs and cached Notion expenses may overlap; do not claim audited net profit.`
+    : "Businesses: none yet; ask for business and sales data before making claims.";
+
   const lines = [
     `Today: ${dayString()}.`,
     ...(statusLine ? [statusLine] : []),
@@ -240,6 +285,7 @@ Open assignments/exams (earliest first): ${deadlines.slice(0, 15).map(({ course,
         )
         .join("; ") || "none"
     }.`,
+    businessLine,
     `Net worth: AED ${netWorthTotal(accounts)} across ${accounts.length} accounts.`,
     `His notes (titles only — use append_note to add to one): ${
       notes

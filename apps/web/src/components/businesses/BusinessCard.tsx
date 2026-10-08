@@ -124,9 +124,19 @@ export function BusinessCard({ b }: { b: BusinessSummary }) {
         </button>
       </div>
 
+      <button
+        onClick={() => update.mutate({ id: b.id, input: { notionExpenseSource: !b.notionExpenseSource } })}
+        disabled={update.isPending}
+        className={`mb-3 rounded-lg px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${
+          b.notionExpenseSource ? "bg-good/15 text-good" : "bg-surface-2 text-muted"
+        }`}
+      >
+        {b.notionExpenseSource ? "Notion expenses assigned here ✓" : "Assign Notion expenses here"}
+      </button>
+
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Revenue (mo)" value={aed(b.monthRevenueAed)} />
-        <Stat label="Profit (mo)" value={aed(b.monthProfitAed)} />
+        <Stat label="Before Notion (mo)" value={aed(b.monthProfitAed)} />
         <Stat label="Orders (mo)" value={String(b.monthOrders)} />
       </div>
 
